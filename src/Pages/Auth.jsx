@@ -1,7 +1,33 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Eye, EyeOff, ChevronDown } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import ForgotPasswordModal from '../components/ForgotPasswordModal'
+import { authAPI, setAuthToken } from '../services/api'
+
+// Country data with codes and flags
+const COUNTRIES = [
+  { code: '+1', flag: '🇺🇸', name: 'United States', shortCode: 'US' },
+  { code: '+44', flag: '🇬🇧', name: 'United Kingdom', shortCode: 'GB' },
+  { code: '+91', flag: '🇮🇳', name: 'India', shortCode: 'IN' },
+  { code: '+86', flag: '🇨🇳', name: 'China', shortCode: 'CN' },
+  { code: '+81', flag: '🇯🇵', name: 'Japan', shortCode: 'JP' },
+  { code: '+33', flag: '🇫🇷', name: 'France', shortCode: 'FR' },
+  { code: '+49', flag: '🇩🇪', name: 'Germany', shortCode: 'DE' },
+  { code: '+39', flag: '🇮🇹', name: 'Italy', shortCode: 'IT' },
+  { code: '+34', flag: '🇪🇸', name: 'Spain', shortCode: 'ES' },
+  { code: '+61', flag: '🇦🇺', name: 'Australia', shortCode: 'AU' },
+  { code: '+64', flag: '🇳🇿', name: 'New Zealand', shortCode: 'NZ' },
+  { code: '+1', flag: '🇨🇦', name: 'Canada', shortCode: 'CA' },
+  { code: '+55', flag: '🇧🇷', name: 'Brazil', shortCode: 'BR' },
+  { code: '+52', flag: '🇲🇽', name: 'Mexico', shortCode: 'MX' },
+  { code: '+82', flag: '🇰🇷', name: 'South Korea', shortCode: 'KR' },
+  { code: '+60', flag: '🇲🇾', name: 'Malaysia', shortCode: 'MY' },
+  { code: '+65', flag: '🇸🇬', name: 'Singapore', shortCode: 'SG' },
+  { code: '+66', flag: '🇹🇭', name: 'Thailand', shortCode: 'TH' },
+  { code: '+92', flag: '🇵🇰', name: 'Pakistan', shortCode: 'PK' },
+  { code: '+90', flag: '🇹🇷', name: 'Turkey', shortCode: 'TR' },
+]
 
 export default function AuthModal() {
   const [isLogin, setIsLogin] = useState(true)
@@ -14,6 +40,10 @@ export default function AuthModal() {
   const [role, setRole] = useState('Job Seeker')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0])
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false)
   const navigate = useNavigate()
 
   // Helper: demo/social sign-in fallback when no real client ID is configured
@@ -114,10 +144,29 @@ export default function AuthModal() {
       setError('Please enter a valid email')
       return false
     }
-    if (password.length < 3) {
-      setError('Password must be at least 3 characters')
+    
+    // Modern password validation
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
       return false
     }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter')
+      return false
+    }
+    if (!/[a-z]/.test(password)) {
+      setError('Password must contain at least one lowercase letter')
+      return false
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain at least one number')
+      return false
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      setError('Password must contain at least one special character (!@#$%^&*...)')
+      return false
+    }
+    
     if (!isLogin) {
       if (name.length < 2) {
         setError('Please enter your full name')
@@ -138,7 +187,7 @@ export default function AuthModal() {
   }
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
@@ -148,45 +197,41 @@ export default function AuthModal() {
 
     if (!validateForm()) return
 
-    const USERS_KEY = 'resumate_users'
-    const CURRENT_USER_KEY = 'resumate_user'
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
+    try {
+      if (isLogin) {
+        // Login with API
+        const response = await authAPI.login({
+          email,
+          password,
+        })
 
-    if (isLogin) {
-      // Login logic
-      const user = users.find(u => u.email === email && u.password === password && u.role === role)
-      if (user) {
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
-        if (role === 'recruiter') navigate('/recruiter')
-        else if (role === 'admin') navigate('/admin')
+        // Save token and user
+        setAuthToken(response.token, response.user)
+
+        // Redirect based on role
+        const userRole = response.user.role
+        if (userRole === 'recruiter') navigate('/recruiter')
+        else if (userRole === 'admin') navigate('/admin')
         else navigate('/upload')
       } else {
-        setError('Invalid email, password, or role')
-      }
-    } else {
-      // Sign up logic
-      const userExists = users.find(u => u.email === email && u.role === role)
-      if (userExists) {
-        setError('User already exists. Please log in instead.')
-        return
-      }
+        // Sign up with API
+        const response = await authAPI.register({
+          name,
+          email,
+          password,
+          role,
+          phone: `${selectedCountry.code}${phone}`,
+        })
 
-      const newUser = { 
-        id: Date.now().toString(), 
-        name, 
-        email, 
-        password, 
-        phone,
-        role 
+        // Show success message
+        setSuccess(`Account created as ${role}. Please sign in.`)
+        setPassword('')
+        setConfirmPassword('')
+        setPhone('')
+        setIsLogin(true)
       }
-  users.push(newUser)
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-  // Do NOT auto-login after signup — switch to login module so user can sign in
-  setSuccess(`Account created as ${role}. Please sign in.`)
-  setPassword('')
-  setConfirmPassword('')
-  setPhone('')
-  setIsLogin(true)
+    } catch (err) {
+      setError(err.message || 'An error occurred. Please try again.')
     }
   }
 
@@ -274,14 +319,56 @@ export default function AuthModal() {
             {/* Phone (only for sign up) */}
             {!isLogin && (
               <div className="mb-4">
-                <input
-                  type="tel"
-                  placeholder="Phone (e.g. +1234567890)"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
-                  required
-                />
+                <label className="block text-gray-300 text-sm mb-2">Phone Number</label>
+                <div className="flex gap-2">
+                  {/* Country Code Dropdown */}
+                  <div className="relative w-24">
+                    <button
+                      type="button"
+                      onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                      className="w-full p-3 bg-gray-700 rounded-lg flex items-center justify-between text-white hover:bg-gray-600 transition"
+                    >
+                      <span className="text-lg">{selectedCountry.flag}</span>
+                      <ChevronDown size={16} className="text-gray-400" />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {showCountryDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                        {COUNTRIES.map((country) => (
+                          <button
+                            key={country.shortCode}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCountry(country)
+                              setShowCountryDropdown(false)
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-600 transition flex items-center gap-2"
+                          >
+                            <span className="text-lg">{country.flag}</span>
+                            <span className="text-xs text-gray-400">{country.code}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Phone Number Input */}
+                  <div className="flex-1 relative">
+                    <input
+                      type="tel"
+                      placeholder="Enter your number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                      className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400 pl-12"
+                      required
+                    />
+                    <span className="absolute left-3 top-3 text-gray-400 text-sm font-medium">
+                      {selectedCountry.code}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Full number: {selectedCountry.code}{phone}</p>
               </div>
             )}
 
@@ -298,28 +385,66 @@ export default function AuthModal() {
             </div>
 
             {/* Password Field */}
-            <div className="mb-6">
+            <div className="mb-6 relative">
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
+                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400 pr-10"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
 
             {/* Confirm Password (only for sign up) */}
             {!isLogin && (
-              <div className="mb-6">
+              <div className="mb-6 relative">
                 <input
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
+                  className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            )}
+
+            {/* Password Strength Indicator (only for sign up) */}
+            {!isLogin && password && (
+              <div className="mb-6 p-3 bg-gray-700 rounded-lg text-sm">
+                <p className="text-gray-300 mb-2 font-medium">Password requirements:</p>
+                <ul className="space-y-1 text-xs">
+                  <li className={password.length >= 8 ? 'text-green-400' : 'text-gray-400'}>
+                    ✓ At least 8 characters {password.length >= 8 ? '✓' : ''}
+                  </li>
+                  <li className={/[A-Z]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
+                    ✓ One uppercase letter {/[A-Z]/.test(password) ? '✓' : ''}
+                  </li>
+                  <li className={/[a-z]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
+                    ✓ One lowercase letter {/[a-z]/.test(password) ? '✓' : ''}
+                  </li>
+                  <li className={/[0-9]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
+                    ✓ One number {/[0-9]/.test(password) ? '✓' : ''}
+                  </li>
+                  <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
+                    ✓ One special character {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? '✓' : ''}
+                  </li>
+                </ul>
               </div>
             )}
 

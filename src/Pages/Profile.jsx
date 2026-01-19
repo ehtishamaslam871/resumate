@@ -1,17 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import api from '../services/api'
 
 export default function Profile() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
   const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('resumate_user') || 'null')
-    } catch {
-      return null
-    }
+    return api.getCurrentUser() || null
   })
 
   const [name, setName] = useState(user?.name || '')
@@ -26,79 +23,25 @@ export default function Profile() {
   useEffect(() => {
     if (!user) {
       navigate('/auth')
+      return
     }
-    // keep local state names in sync if resumate_user changes elsewhere
-    const onStorage = (e) => {
-      if (e.key === 'resumate_user') {
-        try {
-          const updated = JSON.parse(e.newValue || 'null')
-          setUser(updated)
-          setName(updated?.name || '')
-          setEmail(updated?.email || '')
-          setAvatar(updated?.avatar || null)
-        } catch {}
-      }
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [user, navigate])
-
-  useEffect(() => {
-    const loadApps = () => {
+    
+    // Load user applications and interviews from API
+    const loadData = async () => {
       try {
-        // Hide applications for recruiter/admin accounts
-        const role = (user?.role || '').toLowerCase()
-        if (role.includes('recruit') || role.includes('admin')) {
-          setApplications([])
-          return
+        // Only load applications for job seekers
+        const userRole = (user?.role || '').toLowerCase()
+        if (!userRole.includes('recruit') && !userRole.includes('admin')) {
+          const applicationsResponse = await api.applications.getUserApplications()
+          setApplications(applicationsResponse.applications || [])
         }
-
-        const apps = JSON.parse(localStorage.getItem('resumate_applications') || '[]')
-        const hiddenKey = 'resumate_hidden_applications'
-        const hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]')
-        // show applications belonging to this user when possible, but respect per-user hidden list
-        const filtered = apps.filter(a => {
-          const isHidden = hidden.some(h => h.job === a.job && h.company === a.company && (h.userId === user?.id || h.userId === user?.email))
-          if (isHidden) return false
-          if (!a.userId) return true // legacy entries: show them to job seekers unless hidden
-          return a.userId === user?.id || a.userId === user?.email
-        })
-
-        // dedupe by job+company: prefer entries that belong to the current user, then newest
-        const map = new Map()
-        filtered.forEach(a => {
-          const key = `${a.job}@@${a.company}`
-          const existingEntry = map.get(key)
-          if (!existingEntry) {
-            map.set(key, a)
-            return
-          }
-          // prefer entries with matching userId
-          const existingIsMine = existingEntry.userId === user?.id || existingEntry.userId === user?.email
-          const thisIsMine = a.userId === user?.id || a.userId === user?.email
-          if (thisIsMine && !existingIsMine) {
-            map.set(key, a)
-            return
-          }
-          // otherwise keep the most recent by date
-          const existingDate = existingEntry.date ? new Date(existingEntry.date).getTime() : 0
-          const thisDate = a.date ? new Date(a.date).getTime() : 0
-          if (thisDate > existingDate) map.set(key, a)
-        })
-
-        setApplications(Array.from(map.values()))
-      } catch {
-        setApplications([])
+      } catch (err) {
+        console.error('Failed to load applications:', err.message)
       }
     }
-
-    loadApps()
-    const onStorageApps = (e) => {
-      if (e.key === 'resumate_applications') loadApps()
-    }
-    window.addEventListener('storage', onStorageApps)
-    return () => window.removeEventListener('storage', onStorageApps)
-  }, [user])
+    
+    loadData()
+  }, [user, navigate])
 
   // Load interview invites for job seekers
   useEffect(() => {
@@ -128,41 +71,44 @@ export default function Profile() {
     return () => window.removeEventListener('storage', onStorageInvites)
   }, [user])
 
-  const saveChanges = () => {
+  const saveChanges = async () => {
     if (!email.includes('@')) {
       setMessage('Please enter a valid email')
       setTimeout(() => setMessage(''), 2500)
       return
     }
-    // update current user
-    const updated = { ...user, name: name.trim(), email: email.trim() }
-    if (newPassword.trim()) {
-      if (newPassword.length < 3) {
-        setMessage('Password must be at least 3 characters')
-        setTimeout(() => setMessage(''), 2500)
-        return
-      }
-      updated.password = newPassword
-    }
-    if (avatar) updated.avatar = avatar
 
-    // persist current user
-    localStorage.setItem('resumate_user', JSON.stringify(updated))
-
-    // update users list
     try {
-      const USERS_KEY = 'resumate_users'
-      const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-      const merged = users.map(u => (u.id === updated.id ? { ...u, ...updated } : u))
-      // if user wasn't present, add them
-      if (!merged.find(u => u.id === updated.id)) merged.unshift(updated)
-      localStorage.setItem(USERS_KEY, JSON.stringify(merged))
-    } catch {}
+      const updates = {
+        name: name.trim(),
+        email: email.trim(),
+      }
+      
+      if (newPassword.trim()) {
+        if (newPassword.length < 3) {
+          setMessage('Password must be at least 3 characters')
+          setTimeout(() => setMessage(''), 2500)
+          return
+        }
+        updates.password = newPassword
+      }
 
-    setUser(updated)
-    setNewPassword('')
-    setMessage('Profile saved')
-    setTimeout(() => setMessage(''), 2000)
+      if (avatar) updates.avatar = avatar
+
+      // Call API to update profile
+      const response = await api.auth.updateProfile(updates)
+      
+      // Update local state
+      const updated = { ...user, ...response.user }
+      api.setAuthToken(response.token || localStorage.getItem('authToken'), updated)
+      setUser(updated)
+      setNewPassword('')
+      setMessage('Profile saved successfully')
+      setTimeout(() => setMessage(''), 2000)
+    } catch (err) {
+      setMessage(err.message || 'Failed to save profile')
+      setTimeout(() => setMessage(''), 2500)
+    }
   }
 
   const cancelApplication = (app) => {
