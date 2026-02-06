@@ -55,7 +55,7 @@ router.get('/:notificationId', async (req, res) => {
     }
 
     // Check authorization
-    if (notification.user.toString() !== req.user.id) {
+    if (notification.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -81,7 +81,7 @@ router.put('/:notificationId/read', async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    if (notification.user.toString() !== req.user.id) {
+    if (notification.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -122,7 +122,7 @@ router.delete('/:notificationId', async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    if (notification.user.toString() !== req.user.id) {
+    if (notification.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 

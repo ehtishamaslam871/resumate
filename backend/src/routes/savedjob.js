@@ -90,7 +90,7 @@ router.put('/:savedJobId', async (req, res) => {
     const savedJob = await SavedJob.findById(req.params.savedJobId);
     if (!savedJob) return res.status(404).json({ message: 'Saved job not found' });
 
-    if (savedJob.user.toString() !== req.user.id) {
+    if (savedJob.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -115,7 +115,7 @@ router.delete('/:savedJobId', async (req, res) => {
     const savedJob = await SavedJob.findById(req.params.savedJobId);
     if (!savedJob) return res.status(404).json({ message: 'Saved job not found' });
 
-    if (savedJob.user.toString() !== req.user.id) {
+    if (savedJob.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 

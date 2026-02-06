@@ -8,11 +8,14 @@ router.use(authMiddleware);
 
 // ==================== APPLICANT ROUTES ====================
 
-// Create an application for a job
-router.post('/', applicationController.createApplication);
+// Get recommended jobs for job seeker based on resume (must be before GET /)
+router.get('/recommendations/jobs', applicationController.getRecommendedJobs);
 
 // Get all applications for the current user
 router.get('/', applicationController.getUserApplications);
+
+// Create an application for a job
+router.post('/', applicationController.createApplication);
 
 // Get details of a specific application
 router.get('/:applicationId', applicationController.getApplication);
@@ -24,6 +27,9 @@ router.delete('/:applicationId', applicationController.deleteApplication);
 
 // Get applications for a specific job (recruiter only)
 router.get('/job/:jobId', applicationController.getJobApplications);
+
+// AI Shortlist applications for a job
+router.post('/:jobId/shortlist', applicationController.aiShortlistApplications);
 
 // Update application status (recruiter only)
 router.put('/:applicationId/status', applicationController.updateApplicationStatus);

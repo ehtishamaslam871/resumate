@@ -3,7 +3,7 @@
  * Centralized API client for all backend communication
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -22,6 +22,8 @@ const apiCall = async (endpoint, options = {}) => {
   const token = getAuthToken()
   if (token) {
     headers.Authorization = `Bearer ${token}`
+  } else {
+    console.warn(`No auth token found for request to ${endpoint}`)
   }
 
   try {
@@ -105,13 +107,14 @@ export const resumeAPI = {
    */
   uploadResume: async (file) => {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('resume', file)
 
     const token = getAuthToken()
     const headers = {}
     if (token) {
       headers.Authorization = `Bearer ${token}`
     }
+    // Don't set Content-Type - let the browser set it for multipart/form-data
 
     try {
       const response = await fetch(`${API_BASE_URL}/resume/upload`, {
@@ -171,6 +174,32 @@ export const resumeAPI = {
       body: JSON.stringify(updates),
     })
   },
+
+  // Aliases for convenient access
+  get: (resumeId) => {
+    return apiCall(`/resume/${resumeId}`, {
+      method: 'GET',
+    })
+  },
+
+  list: () => {
+    return apiCall('/resume', {
+      method: 'GET',
+    })
+  },
+
+  delete: (resumeId) => {
+    return apiCall(`/resume/${resumeId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  update: (resumeId, updates) => {
+    return apiCall(`/resume/${resumeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    })
+  },
 }
 
 // ==================== JOB ENDPOINTS ====================
@@ -192,6 +221,24 @@ export const jobAPI = {
    */
   getJob: (jobId) => {
     return apiCall(`/jobs/${jobId}`, {
+      method: 'GET',
+    })
+  },
+
+  /**
+   * Alias for getJob for consistency
+   */
+  getJobById: (jobId) => {
+    return apiCall(`/jobs/${jobId}`, {
+      method: 'GET',
+    })
+  },
+
+  /**
+   * Get all jobs posted by current recruiter
+   */
+  getRecruiterJobs: () => {
+    return apiCall('/jobs/recruiter/my-jobs', {
       method: 'GET',
     })
   },
@@ -230,6 +277,19 @@ export const jobAPI = {
   },
 }
 
+// ==================== JOB MATCHING ENDPOINTS ====================
+export const matchingAPI = {
+  /**
+   * Get matched jobs for a resume
+   * @param {string} resumeId - Resume ID
+   */
+  getMatchedJobs: (resumeId) => {
+    return apiCall(`/matching/resume/${resumeId}`, {
+      method: 'GET',
+    })
+  },
+}
+
 // ==================== APPLICATION ENDPOINTS ====================
 export const applicationAPI = {
   /**
@@ -254,12 +314,33 @@ export const applicationAPI = {
   },
 
   /**
+   * Get recommended jobs for job seeker based on resume
+   */
+  getRecommendedJobs: () => {
+    return apiCall('/applications/recommendations/jobs', {
+      method: 'GET',
+    })
+  },
+
+  /**
    * Get applications for a job
    * @param {string} jobId - Job ID
    */
   getJobApplications: (jobId) => {
     return apiCall(`/applications/job/${jobId}`, {
       method: 'GET',
+    })
+  },
+
+  /**
+   * AI Shortlist candidates for a job
+   * @param {string} jobId - Job ID
+   * @param {Object} options - { topN: 5 }
+   */
+  aiShortlistApplications: (jobId, options = { topN: 5 }) => {
+    return apiCall(`/applications/${jobId}/shortlist`, {
+      method: 'POST',
+      body: JSON.stringify(options),
     })
   },
 
@@ -272,6 +353,20 @@ export const applicationAPI = {
     return apiCall(`/applications/${applicationId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
+    })
+  },
+
+  // Aliases
+  apply: (jobId, resumeId) => {
+    return apiCall('/applications', {
+      method: 'POST',
+      body: JSON.stringify({ jobId, resumeId }),
+    })
+  },
+
+  list: () => {
+    return apiCall('/applications', {
+      method: 'GET',
     })
   },
 }
@@ -330,6 +425,77 @@ export const interviewAPI = {
       method: 'GET',
     })
   },
+
+  /**
+   * Generate interview questions
+   * @param {string} jobId - Job ID
+   * @param {string} applicationId - Application ID
+   */
+  generateQuestions: (jobId, applicationId) => {
+    return apiCall('/interview/generate-questions', {
+      method: 'POST',
+      body: JSON.stringify({ jobId, applicationId }),
+    })
+  },
+
+  /**
+   * Schedule interview for candidate
+   * @param {string} applicationId - Application ID
+   * @param {string} interviewDate - Interview date/time
+   * @param {string} interviewLink - Interview link/URL
+   */
+  scheduleInterview: (applicationId, interviewDate, interviewLink) => {
+    return apiCall('/interview/schedule', {
+      method: 'POST',
+      body: JSON.stringify({ applicationId, interviewDate, interviewLink }),
+    })
+  },
+
+  /**
+   * Send interview link to candidate
+   * @param {string} applicationId - Application ID
+   * @param {string} interviewDate - Interview date/time
+   * @param {string} interviewLink - Interview link/URL
+   */
+  sendInterviewToCandidate: (applicationId, interviewDate, interviewLink) => {
+    return apiCall('/interview/send-to-candidate', {
+      method: 'POST',
+      body: JSON.stringify({ applicationId, interviewDate, interviewLink }),
+    })
+  },
+
+  /**
+   * Get interview for candidate
+   * @param {string} interviewId - Interview ID
+   */
+  getInterview: (interviewId) => {
+    return apiCall(`/interview/${interviewId}`, {
+      method: 'GET',
+    })
+  },
+
+  /**
+   * Submit answer to interview question
+   * @param {string} interviewId - Interview ID
+   * @param {number} questionId - Question ID
+   * @param {string} answer - Answer text
+   */
+  submitInterviewAnswer: (interviewId, questionId, answer) => {
+    return apiCall(`/interview/${interviewId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ questionId, answer }),
+    })
+  },
+
+  /**
+   * Get interview feedback for recruiter
+   * @param {string} interviewId - Interview ID
+   */
+  getInterviewFeedback: (interviewId) => {
+    return apiCall(`/interview/recruiter/feedback/${interviewId}`, {
+      method: 'GET',
+    })
+  },
 }
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -355,11 +521,18 @@ export const getCurrentUser = () => {
 }
 
 export default {
+  auth: authAPI,
+  resume: resumeAPI,
+  job: jobAPI,
+  application: applicationAPI,
+  interview: interviewAPI,
+  matching: matchingAPI,
   authAPI,
   resumeAPI,
   jobAPI,
   applicationAPI,
   interviewAPI,
+  matchingAPI,
   setAuthToken,
   clearAuth,
   isAuthenticated,

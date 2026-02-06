@@ -12,7 +12,7 @@ export default function Navbar() {
   // simple auth state from localStorage
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("resumate_user"));
+      return JSON.parse(localStorage.getItem("user"));
     } catch {
       return null;
     }
@@ -22,13 +22,26 @@ export default function Navbar() {
   useEffect(() => {
     const onStorage = () => {
       try {
-        setUser(JSON.parse(localStorage.getItem("resumate_user")));
+        setUser(JSON.parse(localStorage.getItem("user")));
       } catch {
         setUser(null);
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Also listen for custom auth events
+  useEffect(() => {
+    const handleAuthChange = () => {
+      try {
+        setUser(JSON.parse(localStorage.getItem("user")));
+      } catch {
+        setUser(null);
+      }
+    };
+    window.addEventListener("authChange", handleAuthChange);
+    return () => window.removeEventListener("authChange", handleAuthChange);
   }, []);
 
   // close profile dropdown when clicking outside
@@ -43,7 +56,8 @@ export default function Navbar() {
   }, [profileOpen]);
 
   const handleLogout = () => {
-    localStorage.removeItem("resumate_user");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
     setUser(null);
     setProfileOpen(false);
     navigate("/");
@@ -52,7 +66,7 @@ export default function Navbar() {
   // ensure users must be logged in to access Upload
   const handleUpload = (closeMenu = false) => {
     try {
-      const u = JSON.parse(localStorage.getItem("resumate_user") || "null");
+      const u = JSON.parse(localStorage.getItem("user") || "null");
       if (!u) {
         if (closeMenu) setOpen(false);
         // send to auth and keep desired redirect in state
@@ -86,7 +100,7 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center gap-6">
           <Link to="/" className="hover:text-cyan-300 transition">Home</Link>
-          {!(user && (user.role === 'admin' || user.role === 'recruiter')) && (
+          {!(user && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'recruiter')) && (
             <button onClick={() => handleUpload(false)} className="hover:text-cyan-300 transition">Upload</button>
           )}
           <Link to="/about" className="hover:text-cyan-300 transition">About</Link>
@@ -172,7 +186,7 @@ export default function Navbar() {
         <div className="md:hidden border-t border-gray-800 bg-[#02121A]/80">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2">
             <Link to="/" onClick={() => setOpen(false)} className="py-2 hover:text-cyan-300 transition">Home</Link>
-            {!(user && (user.role === 'admin' || user.role === 'recruiter')) && (
+            {!(user && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'recruiter')) && (
               <button onClick={() => { setOpen(false); handleUpload(true); }} className="py-2 hover:text-cyan-300 transition text-left">Upload</button>
             )}
             <Link to="/about" onClick={() => setOpen(false)} className="py-2 hover:text-cyan-300 transition">About</Link>
@@ -204,13 +218,6 @@ export default function Navbar() {
                   </button>
                 </>
               )}
-
-              <button
-                onClick={() => { setOpen(false); navigate("/create"); }}
-                className="px-4 py-2 border border-gray-700 rounded-full text-sm text-gray-300"
-              >
-                Create
-              </button>
             </div>
           </div>
         </div>

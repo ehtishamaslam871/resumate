@@ -1,6 +1,6 @@
 const Resume = require('../models/Resume');
 const User = require('../models/User');
-const geminiService = require('../services/geminiService');
+const groqService = require('../services/groqService');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const fs = require('fs');
@@ -62,17 +62,27 @@ exports.uploadResume = async (req, res) => {
 
     await resume.save();
 
-    // Extract text and call Gemini AI
+    // Extract text and call Groq AI
     try {
       console.log('🤖 Extracting text from file...');
       const resumeText = await extractTextFromFile(filePath, file.mimetype);
+      console.log('✅ Extracted text length:', resumeText.length);
       
-      console.log('🤖 Parsing resume with Gemini...');
-      const analysis = await geminiService.parseResume(resumeText);
+      console.log('🤖 Parsing resume with Groq...');
+      const analysis = await groqService.parseResume(resumeText);
       
-      if (analysis.success) {
+      console.log('Analysis result:', analysis);
+      
+      if (analysis.success && analysis.data) {
         const data = analysis.data;
-        resume.parsedText = resumeText.substring(0, 10000); // Store first 10k chars
+        console.log('Parsed data received:', {
+          skills: data.skills?.length,
+          experience: data.experience?.length,
+          education: data.education?.length,
+          score: data.score
+        });
+        
+        resume.parsedText = resumeText.substring(0, 10000);
         resume.skills = data.skills || [];
         resume.experience = data.experience || [];
         resume.education = data.education || [];
@@ -86,20 +96,30 @@ exports.uploadResume = async (req, res) => {
           strengths: data.strengths || [],
           improvements: data.improvements || []
         };
-        resume.aiModel = 'gemini-pro';
+        resume.aiModel = 'llama-3.1-8b-instant';
         resume.isParsed = true;
-        await resume.save();
-        
-        res.status(201).json({ 
-          message: 'Resume uploaded and parsed successfully',
-          resume
-        });
+        console.log('✅ Resume parsed successfully');
       } else {
-        res.status(400).json({ message: 'AI parsing failed', error: analysis.error });
+        console.warn('⚠️ AI parsing returned error:', analysis.error);
+        resume.isParsed = false;
       }
+      
+      await resume.save();
+      res.status(201).json({ 
+        message: resume.isParsed ? 'Resume uploaded and parsed successfully' : 'Resume uploaded (AI analysis pending)',
+        resume
+      });
     } catch (aiErr) {
-      console.error('AI parse failed:', aiErr.message);
-      res.status(400).json({ message: 'Failed to parse resume', error: aiErr.message });
+      console.error('❌ AI parse failed:', aiErr.message);
+      console.error('Stack:', aiErr.stack);
+      // Save resume without AI analysis if parsing fails
+      resume.isParsed = false;
+      await resume.save();
+      res.status(201).json({ 
+        message: 'Resume uploaded (AI analysis unavailable)',
+        resume,
+        warning: aiErr.message
+      });
     }
   } catch (err) {
     console.error('Upload error:', err);
@@ -111,10 +131,15 @@ exports.uploadResume = async (req, res) => {
 exports.getResume = async (req, res) => {
   try {
     const resume = await Resume.findById(req.params.id);
-    if (!resume) return res.status(404).json({ message: 'Resume not found' });
+    if (!resume) {
+      console.log('Resume not found:', req.params.id);
+      return res.status(404).json({ message: 'Resume not found' });
+    }
 
     // Check authorization
-    if (resume.user.toString() !== req.user.id) {
+    console.log('Resume user:', resume.user.toString(), 'Req user:', req.user?.id?.toString());
+    if (resume.user.toString() !== req.user?.id?.toString()) {
+      console.log('Auth failed - user mismatch');
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -152,7 +177,7 @@ exports.updateResume = async (req, res) => {
     if (!resume) return res.status(404).json({ message: 'Resume not found' });
 
     // Check authorization
-    if (resume.user.toString() !== req.user.id) {
+    if (resume.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -188,7 +213,7 @@ exports.deleteResume = async (req, res) => {
     if (!resume) return res.status(404).json({ message: 'Resume not found' });
 
     // Check authorization
-    if (resume.user.toString() !== req.user.id) {
+    if (resume.user.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 

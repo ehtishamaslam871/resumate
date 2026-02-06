@@ -50,7 +50,7 @@ exports.createJob = async (req, res) => {
       experienceLevel: experienceLevel || 'mid-level',
       
       applicationDeadline,
-      status: 'active',
+      status: 'open',
       applicantCount: 0,
       viewCount: 0
     });
@@ -84,7 +84,7 @@ exports.listJobs = async (req, res) => {
     } = req.query;
 
     // Build filter
-    const filter = { status: 'active' };
+    const filter = { status: 'open' };
 
     if (search) {
       filter.$or = [
@@ -192,7 +192,7 @@ exports.updateJob = async (req, res) => {
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
     // Only recruiter who posted can update
-    if (job.recruiter.toString() !== req.user.id) {
+    if (job.recruiter.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -230,7 +230,7 @@ exports.deleteJob = async (req, res) => {
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
     // Only recruiter who posted can delete
-    if (job.recruiter.toString() !== req.user.id) {
+    if (job.recruiter.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 

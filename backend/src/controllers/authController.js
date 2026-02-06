@@ -21,7 +21,7 @@ exports.register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password,
-      role: role?.toLowerCase().replace(' ', '_') || 'job_seeker',
+      role: (role || 'job_seeker').toLowerCase().replace(/\s+/g, '_'),
       phone,
       emailVerified: false,
       isActive: true

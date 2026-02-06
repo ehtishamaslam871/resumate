@@ -6,14 +6,14 @@ const resumeController = require('../controllers/resumeController');
 
 const upload = multer({ dest: 'uploads/' });
 
+// Upload a new resume (must come before GET /:id to avoid route conflict)
+router.post('/upload', authMiddleware, upload.single('resume'), resumeController.uploadResume);
+
 // Get all user resumes
 router.get('/', authMiddleware, resumeController.getUserResumes);
 
 // Get a specific resume
 router.get('/:id', authMiddleware, resumeController.getResume);
-
-// Upload a new resume
-router.post('/upload', authMiddleware, upload.single('resume'), resumeController.uploadResume);
 
 // Update resume
 router.put('/:id', authMiddleware, resumeController.updateResume);

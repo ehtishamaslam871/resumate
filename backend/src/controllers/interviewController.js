@@ -4,7 +4,7 @@ const Resume = require('../models/Resume');
 const User = require('../models/User');
 const Application = require('../models/Application');
 const Notification = require('../models/Notification');
-const geminiService = require('../services/geminiService');
+const groqService = require('../services/groqService');
 
 // ==================== START INTERVIEW ====================
 exports.startInterview = async (req, res) => {
@@ -30,9 +30,9 @@ exports.startInterview = async (req, res) => {
       return res.status(400).json({ message: 'Interview already in progress for this job' });
     }
 
-    // Generate interview questions using Gemini
-    console.log('🤖 Generating interview questions with Gemini...');
-    const questionResult = await geminiService.generateInterviewQuestions(
+    // Generate interview questions using Groq
+    console.log('🤖 Generating interview questions with Groq...');
+    const questionResult = await groqService.generateInterviewQuestions(
       job.description || job.title,
       resume.parsedText || 'Resume text not available'
     );
@@ -108,7 +108,7 @@ exports.submitAnswer = async (req, res) => {
     if (!interview) return res.status(404).json({ message: 'Interview not found' });
 
     // Check authorization
-    if (interview.candidate.toString() !== req.user.id) {
+    if (interview.candidate.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -122,7 +122,7 @@ exports.submitAnswer = async (req, res) => {
 
     // Evaluate answer with Gemini
     console.log('🤖 Evaluating answer with Gemini...');
-    const evaluationResult = await geminiService.evaluateAnswer(
+    const evaluationResult = await groqService.evaluateAnswer(
       currentQuestion.question,
       answer,
       currentQuestion.expectedKeywords || []
@@ -162,7 +162,7 @@ exports.submitAnswer = async (req, res) => {
 
       // Generate final feedback
       console.log('🤖 Generating final feedback with Gemini...');
-      const feedbackResult = await geminiService.generateInterviewFeedback(
+      const feedbackResult = await groqService.generateInterviewFeedback(
         interview.answers,
         interview.scores
       );
@@ -211,7 +211,7 @@ exports.getInterviewFeedback = async (req, res) => {
     if (!interview) return res.status(404).json({ message: 'Interview not found' });
 
     // Check authorization
-    if (interview.candidate._id.toString() !== req.user.id) {
+    if (interview.candidate._id.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -278,7 +278,7 @@ exports.getRecruiterFeedback = async (req, res) => {
 
     // Verify recruiter owns the job
     const job = await Job.findById(interview.job);
-    if (job.recruiter.toString() !== req.user.id) {
+    if (job.recruiter.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 

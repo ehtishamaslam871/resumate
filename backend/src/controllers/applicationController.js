@@ -3,6 +3,7 @@ const Job = require('../models/Job');
 const Resume = require('../models/Resume');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { getRecommendedJobs, aiShortlistCandidates } = require('../services/matchingService');
 
 // ==================== CREATE APPLICATION ====================
 exports.createApplication = async (req, res) => {
@@ -117,7 +118,7 @@ exports.getJobApplications = async (req, res) => {
     // Verify recruiter owns this job
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ message: 'Job not found' });
-    if (job.recruiter.toString() !== req.user.id) {
+    if (job.recruiter.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -150,7 +151,7 @@ exports.updateApplicationStatus = async (req, res) => {
 
     // Verify recruiter owns this job
     const job = await Job.findById(application.job);
-    if (job.recruiter.toString() !== req.user.id) {
+    if (job.recruiter.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -228,7 +229,7 @@ exports.deleteApplication = async (req, res) => {
     if (!application) return res.status(404).json({ message: 'Application not found' });
 
     // Only applicant can delete
-    if (application.applicant.toString() !== req.user.id) {
+    if (application.applicant.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -245,6 +246,104 @@ exports.deleteApplication = async (req, res) => {
     res.json({ message: 'Application deleted successfully' });
   } catch (err) {
     console.error('Delete application error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== GET RECOMMENDED JOBS FOR JOB SEEKER ====================
+exports.getRecommendedJobs = async (req, res) => {
+  try {
+    const jobSeekerID = req.user.id;
+
+    // Get job seeker's latest resume
+    const resume = await Resume.findOne({ user: jobSeekerID }).sort({ uploadDate: -1 });
+
+    if (!resume) {
+      return res.status(400).json({ message: 'Please upload a resume first to get job recommendations' });
+    }
+
+    // Get all open jobs
+    const openJobs = await Job.find({ status: 'open' })
+      .populate('recruiter', 'name email')
+      .limit(100);
+
+    // Get recommended jobs with match scores
+    const recommendedJobs = getRecommendedJobs(resume, openJobs);
+
+    // Check which jobs user has already applied to
+    const appliedJobIds = (await Application.find({ applicant: jobSeekerID }).distinct('job')).map(id => id.toString());
+
+    const jobsWithApplicationStatus = recommendedJobs.map(job => ({
+      ...job,
+      hasApplied: appliedJobIds.includes(job._id.toString())
+    }));
+
+    res.json({
+      success: true,
+      totalJobs: jobsWithApplicationStatus.length,
+      jobs: jobsWithApplicationStatus
+    });
+  } catch (err) {
+    console.error('Get recommended jobs error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== AI SHORTLIST CANDIDATES FOR JOB ====================
+exports.aiShortlistApplications = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { topN = 5 } = req.body;
+
+    // Verify recruiter owns this job
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.recruiter.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Get all applications for this job
+    const applications = await Application.find({ job: jobId })
+      .populate('applicant')
+      .populate('resume');
+
+    if (applications.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No applications yet',
+        shortlistedCandidates: []
+      });
+    }
+
+    console.log(`Starting AI shortlisting for ${job.title} with ${applications.length} candidates`);
+
+    // Run AI shortlisting
+    const shortlistedCandidates = await aiShortlistCandidates(applications, job, topN);
+
+    // Update applications with AI scores
+    for (const candidate of shortlistedCandidates) {
+      await Application.findByIdAndUpdate(candidate._id, {
+        aiShortlistScore: candidate.aiScore,
+        status: candidate.isShortlisted ? 'shortlisted' : 'reviewing'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `AI shortlisted ${shortlistedCandidates.length} candidates`,
+      shortlistedCandidates: shortlistedCandidates.map(c => ({
+        _id: c._id,
+        applicantName: c.applicantName,
+        applicantEmail: c.applicantEmail,
+        aiScore: c.aiScore,
+        aiReasoning: c.aiReasoning,
+        aiStrengths: c.aiStrengths,
+        aiGaps: c.aiGaps,
+        recommendation: c.recommendation
+      }))
+    });
+  } catch (err) {
+    console.error('AI shortlist error:', err);
     res.status(500).json({ message: err.message });
   }
 };

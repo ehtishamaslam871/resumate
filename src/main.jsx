@@ -14,7 +14,6 @@ import InterviewBot from "./Pages/chatbot.jsx";
 import Error404 from "./Pages/Error.jsx";
 import About from "./Pages/About.jsx";
 import Contact from "./Pages/Contact.jsx";
-import Analytics from "./Pages/Analytics.jsx";
 import Admin from "./Pages/Admin.jsx";
 import RecruiterDashboard from "./Pages/RecruiterDashboard.jsx";
 import Profile from "./Pages/Profile.jsx";
@@ -56,7 +55,6 @@ function AppRoutes() {
       <Route path="/jobs"element={<Jobs />}/>
       <Route path="/interview/:jobId"element={<Interview />}/>
       <Route path="/chatbot"element={<InterviewBot />}/>
-      <Route path="/analysis"element={<Analytics />}/>
     <Route path="/services" element={<Services />} />
   <Route path="/job/:title" element={<JobDetails />} />
       <Route path="*" element={<Error404 />} />

@@ -17,6 +17,7 @@ const notificationRoutes = require('./routes/notification');
 const savedJobRoutes = require('./routes/savedjob');
 const adminRoutes = require('./routes/admin');
 const searchRoutes = require('./routes/search');
+const matchingRoutes = require('./routes/matching');
 
 const app = express();
 
@@ -53,6 +54,9 @@ app.use('/api/saved-jobs', savedJobRoutes);
 // Resume & Interview
 app.use('/api/resume', resumeRoutes);
 app.use('/api/interview', interviewRoutes);
+
+// Job Matching
+app.use('/api/matching', matchingRoutes);
 
 // Notifications
 app.use('/api/notifications', notificationRoutes);
