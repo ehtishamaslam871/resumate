@@ -293,33 +293,36 @@ export default function InterviewBot() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-dark-950 text-white">
       <Navbar />
+      {/* Animated background */}
+      <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+      <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
 
-      <div className="max-w-4xl mx-auto px-6 py-12">
+      <div className="max-w-6xl mx-auto px-6 py-12">
         {isJobSeeker && interviewInvite ? (
           // Job Seeker Interview Mode
-          <div className="bg-gray-800 rounded-lg flex flex-col h-[700px]">
+          <div className="card-glass rounded-2xl flex flex-col h-[700px] overflow-hidden border border-neon-cyan/20">
             {/* Header */}
-            <div className="p-6 border-b border-gray-700 bg-gradient-to-r from-cyan-600 to-cyan-800">
-              <h1 className="text-2xl font-bold mb-1">Interview for {interviewInvite.jobTitle}</h1>
-              <p className="text-cyan-100">Conducted by {interviewInvite.recruiterName}</p>
+            <div className="p-8 border-b border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/10 to-neon-purple/10">
+              <h1 className="text-3xl font-bold mb-2 text-gray-100">Interview for {interviewInvite.jobTitle}</h1>
+              <p className="text-neon-cyan font-semibold">Conducted by {interviewInvite.recruiterName}</p>
               {isInterviewActive && (
-                <div className="mt-3 text-sm text-cyan-200">
+                <div className="mt-4 inline-block px-4 py-2 bg-neon-cyan/20 border border-neon-cyan/50 rounded-lg text-sm text-neon-cyan font-medium">
                   Question {currentQuestionIndex + 1} of {aiQuestions.length}
                 </div>
               )}
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-8 space-y-4">
               {!isInterviewActive && !interviewCompleted && (
-                <div className="text-center py-12">
-                  <div className="text-cyan-300 text-lg mb-4">Ready to begin your interview?</div>
-                  <p className="text-gray-400 mb-6">You will be asked {getAIQuestions(jobData?.title || '', jobData?.description || '').length} questions.</p>
+                <div className="text-center py-16">
+                  <div className="text-neon-cyan text-xl font-bold mb-4">Ready to begin your interview?</div>
+                  <p className="text-gray-400 mb-8 text-lg">You will be asked {getAIQuestions(jobData?.title || '', jobData?.description || '').length} questions. Take your time to provide thoughtful answers.</p>
                   <button
                     onClick={startInterview}
-                    className="px-8 py-3 bg-cyan-500 text-gray-900 rounded-lg font-semibold hover:bg-cyan-600 text-lg"
+                    className="btn-primary px-8 py-3 text-lg font-bold shadow-lg shadow-neon-cyan/50"
                   >
                     Start Interview
                   </button>
@@ -328,12 +331,12 @@ export default function InterviewBot() {
 
               {(isInterviewActive || interviewCompleted) && messages.map(message => (
                 <div key={message.id} className={`flex ${message.sender === 'candidate' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-4 rounded-lg ${
+                  <div className={`max-w-[85%] p-4 rounded-xl ${
                     message.sender === 'interviewer' 
-                      ? 'bg-blue-600 text-white rounded-br-none' 
+                      ? 'bg-neon-blue/20 border border-neon-blue/50 text-gray-100 rounded-br-none' 
                       : message.sender === 'candidate' 
-                      ? 'bg-cyan-500 text-gray-900 rounded-bl-none' 
-                      : 'bg-gray-700 text-gray-100 w-full text-center'
+                      ? 'bg-neon-cyan/20 border border-neon-cyan/50 text-gray-100 rounded-bl-none' 
+                      : 'bg-dark-800/50 border border-dark-600 text-gray-300 w-full text-center'
                   }`}>
                     {message.text}
                   </div>
@@ -341,9 +344,9 @@ export default function InterviewBot() {
               ))}
 
               {interviewCompleted && (
-                <div className="mt-6 p-4 bg-green-500/10 border border-green-600/30 rounded-lg text-center">
-                  <div className="text-green-400 text-lg font-semibold mb-2">Interview Completed!</div>
-                  <p className="text-gray-300 text-sm">Your answers are being reviewed by the recruiter.</p>
+                <div className="mt-6 p-6 bg-neon-green/10 border border-neon-green/50 rounded-xl text-center">
+                  <div className="text-neon-green text-lg font-bold mb-2">✓ Interview Completed!</div>
+                  <p className="text-gray-300">Your answers are being reviewed by the recruiter.</p>
                 </div>
               )}
 
@@ -352,19 +355,19 @@ export default function InterviewBot() {
 
             {/* Input Area */}
             {isInterviewActive && !interviewCompleted && (
-              <form onSubmit={sendQuestion} className="p-4 border-t border-gray-700 bg-gray-900">
+              <form onSubmit={sendQuestion} className="p-6 border-t border-neon-cyan/20 bg-dark-900/50">
                 <div className="flex gap-3">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type your answer here..."
-                    className="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-cyan-500 focus:outline-none text-white placeholder-gray-400"
+                    className="input-modern flex-1"
                   />
                   <button
                     type="submit"
                     disabled={!input.trim()}
-                    className="px-6 py-3 bg-cyan-500 text-gray-900 rounded-lg font-semibold hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary px-6 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>
@@ -373,27 +376,27 @@ export default function InterviewBot() {
             )}
 
             {/* Footer Actions */}
-            <div className="p-4 border-t border-gray-700 flex gap-3 justify-between bg-gray-900">
+            <div className="p-6 border-t border-neon-cyan/20 flex gap-3 justify-between bg-dark-900/50">
               {interviewCompleted && (
                 <>
                   <button
                     onClick={() => navigate('/profile')}
-                    className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+                    className="btn-secondary px-6 font-bold"
                   >
                     Back to Profile
                   </button>
                   <button
                     onClick={submitInterviewReport}
-                    className="px-6 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700"
+                    className="px-6 py-2 bg-gradient-to-r from-neon-green to-neon-cyan text-dark-950 rounded-lg font-bold hover:shadow-lg hover:shadow-neon-green/50 transition"
                   >
-                    Submit Report to Recruiter
+                    Submit Report
                   </button>
                 </>
               )}
               {!isInterviewActive && !interviewCompleted && (
                 <button
                   onClick={() => navigate('/profile')}
-                  className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600"
+                  className="btn-secondary px-6 font-bold"
                 >
                   Cancel
                 </button>
@@ -401,38 +404,36 @@ export default function InterviewBot() {
             </div>
           </div>
         ) : (
-          // Recruiter View (unchanged for backward compatibility)
+          // Recruiter View
           <div className="grid md:grid-cols-3 gap-8">
             {/* Sidebar - Applicants list */}
-            <div className="md:col-span-1 bg-gray-800 p-6 rounded-lg">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-cyan-500 text-gray-900 px-3 py-2 rounded-full font-bold">RC</div>
+            <div className="card-glass rounded-2xl p-8 border border-neon-cyan/20 md:col-span-1 h-fit">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-bold text-lg">RC</div>
                 <div>
-                  <div className="text-cyan-300 font-semibold">Interview Conductor</div>
-                  <div className="text-gray-400 text-sm">Conduct interviews for shortlisted candidates</div>
+                  <div className="font-bold text-neon-cyan">Interview Conductor</div>
+                  <div className="text-gray-400 text-sm">Manage candidate interviews</div>
                 </div>
               </div>
 
-              <h3 className="text-lg font-bold mb-3">Shortlisted Candidates</h3>
-              <div className="space-y-3 max-h-96 overflow-auto">
+              <h3 className="text-xl font-bold mb-6 text-gray-100">Shortlisted Candidates</h3>
+              <div className="space-y-3 max-h-[600px] overflow-auto">
                 {applicants.length === 0 && (
-                  <div className="text-sm text-gray-400">No shortlisted candidates available.</div>
+                  <div className="text-sm text-gray-400 text-center py-8">No shortlisted candidates available.</div>
                 )}
                 {applicants.map(app => (
-                  <div key={app.id} className={`p-3 rounded border ${selectedApplicant?.id === app.id ? 'border-cyan-500 bg-gray-900' : 'border-gray-700 bg-gray-900'}`}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold">{app.name}</div>
-                        <div className="text-xs text-gray-400">{app.email}</div>
+                  <div key={app.id} className={`p-4 rounded-lg border transition-all ${selectedApplicant?.id === app.id ? 'bg-neon-cyan/10 border-neon-cyan/50' : 'bg-dark-800/50 border-dark-600 hover:border-neon-cyan/30'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-100">{app.name}</div>
+                        <div className="text-xs text-neon-cyan">{app.email}</div>
                         <div className="text-xs text-gray-500 mt-1">Applied: {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : '—'}</div>
                       </div>
-                      <div className="text-sm text-gray-300">{app.status || 'shortlisted'}</div>
+                      <div className="text-xs font-semibold bg-neon-cyan/20 text-neon-cyan px-2 py-1 rounded">{app.status || 'Shortlisted'}</div>
                     </div>
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => selectApplicant(app)} className="px-3 py-1 bg-cyan-500 text-gray-900 rounded text-sm">Select</button>
-                      <button onClick={() => {
-                        selectApplicant(app)
-                      }} className="px-3 py-1 bg-gray-700 rounded text-sm">Preview</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => selectApplicant(app)} className="flex-1 btn-primary text-xs py-2 font-bold">Select</button>
+                      <button className="flex-1 btn-secondary text-xs py-2 font-bold">Preview</button>
                     </div>
                   </div>
                 ))}
@@ -440,51 +441,55 @@ export default function InterviewBot() {
             </div>
 
             {/* Main Interview Area */}
-            <div className="md:col-span-2 bg-gray-800 rounded-lg flex flex-col h-[600px]">
-              <div className="p-4 border-b border-gray-700">
+            <div className="card-glass rounded-2xl flex flex-col h-[700px] overflow-hidden border border-neon-cyan/20 md:col-span-2">
+              <div className="p-6 border-b border-neon-cyan/20 bg-gradient-to-r from-neon-cyan/10 to-neon-purple/10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-semibold">Conductor</h3>
-                    <p className="text-gray-400 text-sm">{selectedApplicant ? `${selectedApplicant.name} — ${selectedApplicant.email}` : 'Select a candidate to begin'}</p>
+                    <h3 className="text-2xl font-bold text-gray-100">Interview Conductor</h3>
+                    <p className="text-neon-cyan font-semibold mt-1">{selectedApplicant ? `${selectedApplicant.name} — ${selectedApplicant.email}` : 'Select a candidate to begin'}</p>
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-sm ${isInterviewActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-600 text-gray-400'}`}>
-                    {isInterviewActive ? 'Live' : 'Idle'}
+                  <div className={`px-4 py-2 rounded-full text-sm font-bold ${isInterviewActive ? 'bg-neon-green/20 text-neon-green border border-neon-green/50' : 'bg-dark-700/50 text-gray-400 border border-dark-600'}`}>
+                    {isInterviewActive ? '● Live' : '○ Idle'}
                   </div>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-8 space-y-4">
                 {selectedApplicant ? (
-                  messages.map(message => (
-                    <div key={message.id} className={`flex ${message.sender === 'interviewer' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] p-4 rounded-lg ${message.sender === 'interviewer' ? 'bg-cyan-500 text-gray-900' : message.sender === 'candidate' ? 'bg-gray-700 text-gray-100' : 'bg-gray-600 text-gray-100'}`}>
+                  messages.length > 0 ? (
+                    messages.map(message => (
+                      <div key={message.id} className={`flex ${message.sender === 'interviewer' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-4 rounded-xl ${message.sender === 'interviewer' ? 'bg-neon-cyan/20 border border-neon-cyan/50 text-gray-100' : message.sender === 'candidate' ? 'bg-neon-blue/20 border border-neon-blue/50 text-gray-100' : 'bg-dark-800/50 border border-dark-600 text-gray-300'}`}>
                         {message.text}
                       </div>
                     </div>
-                  ))
+                    ))
+                  ) : (
+                    <div className="text-center text-gray-400 py-16">No messages yet. Start the interview to begin.</div>
+                  )
                 ) : (
-                  <div className="text-sm text-gray-400">No candidate selected. Choose one from the left to begin.</div>
+                  <div className="text-center text-gray-400 text-lg py-16">Select a candidate from the left to begin.</div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={sendQuestion} className="p-4 border-t border-gray-700">
+              <form onSubmit={sendQuestion} className="p-6 border-t border-neon-cyan/20 bg-dark-900/50">
                 <div className="flex gap-3">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={isInterviewActive ? "Type your question to the candidate..." : "Start interview to enable input..."}
+                    placeholder={isInterviewActive ? "Type your question..." : "Start interview to enable input..."}
                     disabled={!isInterviewActive || !selectedApplicant}
-                    className="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-cyan-500 focus:outline-none disabled:opacity-50"
+                    className="input-modern flex-1 disabled:opacity-50"
                   />
-                  <button type="submit" disabled={!isInterviewActive || !selectedApplicant || !input.trim()} className="px-6 py-3 bg-cyan-500 text-gray-900 rounded-lg font-semibold hover:bg-cyan-600 disabled:opacity-50">Send</button>
+                  <button type="submit" disabled={!isInterviewActive || !selectedApplicant || !input.trim()} className="btn-primary px-6 font-bold disabled:opacity-50">Send</button>
                 </div>
               </form>
 
-              <div className="p-4 border-t border-gray-700 flex gap-2">
-                <button onClick={startInterview} className="px-4 py-2 bg-cyan-500 text-gray-900 rounded font-semibold hover:bg-cyan-600">Start Interview</button>
-                <button onClick={() => clearSelection()} className="px-3 py-2 bg-gray-700 rounded hover:bg-gray-600">Clear</button>
+              <div className="p-6 border-t border-neon-cyan/20 flex gap-3 bg-dark-900/50">
+                <button onClick={startInterview} className="btn-primary flex-1 font-bold">Start Interview</button>
+                <button onClick={() => clearSelection()} className="btn-secondary flex-1 font-bold">Clear</button>
               </div>
             </div>
           </div>

@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { MessageCircle, Menu, X, User } from "lucide-react";
+import { Menu, X, User, LogOut, FileText, Briefcase, Settings, Bell } from "lucide-react";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false); 
   const [profileOpen, setProfileOpen] = useState(false); 
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
 
   // simple auth state from localStorage
   const [user, setUser] = useState(() => {
@@ -50,10 +54,61 @@ export default function Navbar() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setProfileOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
     };
-    if (profileOpen) window.addEventListener("mousedown", onClick);
+    if (profileOpen || notifOpen) window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
-  }, [profileOpen]);
+  }, [profileOpen, notifOpen]);
+
+  // Fetch notifications for authenticated users  
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        const res = await fetch('http://localhost:5001/api/notifications?limit=10', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.unreadCount || 0);
+        }
+      } catch (e) {
+        // silently ignore
+      }
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const markNotificationRead = async (notifId) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch(`http://localhost:5001/api/notifications/${notifId}/read`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.map(n => n._id === notifId ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (e) { /* ignore */ }
+  };
+
+  const markAllRead = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      await fetch('http://localhost:5001/api/notifications/markall/read', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (e) { /* ignore */ }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
@@ -63,13 +118,11 @@ export default function Navbar() {
     navigate("/");
   };
 
-  // ensure users must be logged in to access Upload
   const handleUpload = (closeMenu = false) => {
     try {
       const u = JSON.parse(localStorage.getItem("user") || "null");
       if (!u) {
         if (closeMenu) setOpen(false);
-        // send to auth and keep desired redirect in state
         navigate("/auth", { state: { from: "/upload" } });
         return;
       }
@@ -83,142 +136,293 @@ export default function Navbar() {
     navigate("/upload");
   };
 
-  // Only show logout/login area when user is signed in AND the current path is NOT home ("/")
   const showLogout = Boolean(user) && location.pathname !== "/";
 
+  const isActive = (path) => location.pathname === path;
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-[#021018] via-[#02121A] to-transparent border-b border-gray-800 text-white">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 flex items-center justify-center text-gray-900 font-extrabold">
+    <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-dark-950/80 border-b border-neon-cyan/20">
+      <div className="max-w-full mx-auto px-4 py-2.5 flex items-center justify-between">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple 
+              flex items-center justify-center text-dark-950 font-extrabold text-xs group-hover:shadow-lg group-hover:shadow-neon-cyan/50 transition-all">
             RM
           </div>
-          <div className="hidden sm:block">
-            <div className="font-semibold text-lg">ResuMate</div>
-          </div>
+          <span className="hidden sm:block font-display font-bold text-sm text-gray-100">
+            ResuMate
+          </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/" className="hover:text-cyan-300 transition">Home</Link>
-          {!(user && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'recruiter')) && (
-            <button onClick={() => handleUpload(false)} className="hover:text-cyan-300 transition">Upload</button>
-          )}
-          <Link to="/about" className="hover:text-cyan-300 transition">About</Link>
-          <Link to="/services" className="hover:text-cyan-300 transition">Services</Link>
-          <Link to="/contact" className="hover:text-cyan-300 transition">Contact</Link>
-
-          {/* show login button when no user OR show profile area when user is logged in */}
-          {!user ? (
-            <button
-              onClick={() => navigate("/auth")}
-              className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-gray-900 rounded-full font-medium transition"
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-1">
+          {user && (user.role === 'admin' || user.role === 'recruiter') ? (
+            <Link
+              to={user.role === 'admin' ? '/admin' : '/recruiter'}
+              className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+                isActive(user.role === 'admin' ? '/admin' : '/recruiter') || isActive('/') ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+              }`}
             >
-              Login
-            </button>
+              Dashboard
+            </Link>
           ) : (
-            // Profile area displayed top-right after login
-            <div className="relative" ref={dropdownRef}>
+            <Link
+              to="/"
+              className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+                isActive("/") ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+              }`}
+            >
+              Home
+            </Link>
+          )}
+          {user && user.role !== 'admin' && user.role !== 'recruiter' && (
+            <>
               <button
-                onClick={() => setProfileOpen((s) => !s)}
-                className="flex items-center gap-3 px-3 py-1 rounded-full hover:bg-gray-800 transition"
-                title="Account"
-                aria-expanded={profileOpen}
+                onClick={() => handleUpload()}
+                className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+                  isActive("/upload") ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+                }`}
               >
-                {user.photo ? (
-                  <img src={user.photo} alt={user.name || "User"} className="w-9 h-9 rounded-full object-cover border-2 border-cyan-500" />
-                ) : (
-                  <User className="w-6 h-6 text-cyan-300" />
+                Upload
+              </button>
+              <Link
+                to="/jobs"
+                className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+                  isActive("/jobs") ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+                }`}
+              >
+                Jobs
+              </Link>
+            </>
+          )}
+          <Link
+            to="/services"
+            className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+              isActive("/services") ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+            }`}
+          >
+            Services
+          </Link>
+          <Link
+            to="/contact"
+            className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+              isActive("/contact") ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+            }`}
+          >
+            Contact
+          </Link>
+          <Link
+            to="/about"
+            className={`text-xs font-semibold transition-all duration-300 px-3 py-2 rounded-lg ${
+              isActive("/about") ? "text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30" : "text-gray-400 hover:text-gray-100 hover:bg-dark-800/50"
+            }`}
+          >
+            About
+          </Link>
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-2">
+          {/* Notification Bell */}
+          {user && (
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className="relative p-2 rounded-lg hover:bg-dark-800/50 transition-all duration-300"
+              >
+                <Bell className="w-5 h-5 text-gray-400 hover:text-neon-cyan transition" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
-                <span className="hidden sm:inline text-sm">{user.name || user.email}</span>
               </button>
 
-              {profileOpen && (
-                <div className="absolute right-0 mt-3 w-48 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden">
-                  <div className="p-3 border-b border-gray-800">
-                    <div className="text-sm font-semibold text-white truncate">{user.name || user.email}</div>
-                    {user.email && <div className="text-xs text-gray-400 truncate">{user.email}</div>}
+              {notifOpen && (
+                <div className="absolute right-0 mt-2 w-80 card-glass rounded-xl shadow-xl overflow-hidden animate-slide-up z-50 border border-neon-cyan/20">
+                  <div className="p-3 border-b border-dark-600 flex items-center justify-between">
+                    <p className="font-semibold text-gray-100 text-sm">Notifications</p>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllRead}
+                        className="text-[10px] text-neon-cyan hover:text-neon-cyan/80 font-semibold transition"
+                      >
+                        Mark all read
+                      </button>
+                    )}
                   </div>
 
-                  <ul className="text-sm">
-                    <li>
-                      <button
-                        onClick={() => {
-                          setProfileOpen(false);
-                          navigate("/profile");
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-800"
-                      >
-                        Edit Profile
-                      </button>
-                    </li>
-
-                    <li>
-                      <button
-                        onClick={() => {
-                          handleLogout();
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-red-600/10 text-red-400"
-                      >
-                        Logout
-                      </button>
-                    </li>
-                  </ul>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-gray-500 text-xs">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif._id}
+                          onClick={() => {
+                            if (!notif.isRead) markNotificationRead(notif._id);
+                            if (notif.actionUrl) navigate(notif.actionUrl);
+                            setNotifOpen(false);
+                          }}
+                          className={`px-3 py-3 border-b border-dark-700/30 cursor-pointer transition hover:bg-dark-800/50 ${
+                            !notif.isRead ? 'bg-neon-cyan/5' : ''
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {!notif.isRead && (
+                              <div className="w-2 h-2 rounded-full bg-neon-cyan mt-1.5 flex-shrink-0"></div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-200 truncate">{notif.title}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{notif.message}</p>
+                              <p className="text-[10px] text-gray-500 mt-1">
+                                {new Date(notif.createdAt).toLocaleDateString()} {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )}
-        </div>
 
-        {/* Mobile controls */}
-        <div className="md:hidden flex items-center gap-3">
+          {user ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 hover:from-neon-cyan/30 hover:to-neon-purple/30 border border-neon-cyan/50 transition-all duration-300 shadow-lg shadow-neon-cyan/20"
+              >
+                <User className="w-4 h-4 text-neon-cyan" />
+                <span className="hidden sm:inline text-xs font-bold text-gray-100">
+                  {user.name ? user.name.split(" ")[0] : "Profile"}
+                </span>
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-52 card-glass rounded-xl shadow-xl overflow-hidden animate-slide-up">
+                  <div className="p-3 border-b border-dark-600">
+                    <p className="text-xs text-gray-400">Signed in as</p>
+                    <p className="font-semibold text-gray-100 text-sm">{user.name || user.email}</p>
+                  </div>
+
+                  <div className="p-2 space-y-1">
+                    <Link
+                      to="/profile"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-gray-300 hover:text-neon-cyan hover:bg-dark-800/50 rounded-lg transition-colors duration-300"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors duration-300"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate("/auth")}
+              className="hidden sm:inline-flex px-4 py-2 bg-gradient-to-r from-neon-cyan to-neon-blue text-dark-950 rounded-lg font-bold text-xs shadow-lg shadow-neon-cyan/50 hover:shadow-neon-cyan/70 transition-all duration-300 hover:scale-105"
+            >
+              Sign In
+            </button>
+          )}
+
+          {/* Mobile Menu */}
           <button
-            onClick={() => setOpen((s) => !s)}
-            className="p-2 bg-gray-800 hover:bg-gray-800/80 rounded-md transition"
-            aria-label="Toggle menu"
+            onClick={() => setOpen(!open)}
+            className="md:hidden p-2.5 hover:bg-dark-800 rounded-lg transition-all duration-300 hover:border border-dark-600"
           >
-            {open ? <X size={18} /> : <Menu size={18} />}
+            {open ? (
+              <X className="w-5 h-5 text-gray-100" />
+            ) : (
+              <Menu className="w-5 h-5 text-gray-100" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile Menu */}
       {open && (
-        <div className="md:hidden border-t border-gray-800 bg-[#02121A]/80">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2">
-            <Link to="/" onClick={() => setOpen(false)} className="py-2 hover:text-cyan-300 transition">Home</Link>
-            {!(user && (user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'recruiter')) && (
-              <button onClick={() => { setOpen(false); handleUpload(true); }} className="py-2 hover:text-cyan-300 transition text-left">Upload</button>
+        <div className="md:hidden border-t border-neon-cyan/20 bg-dark-950/95 backdrop-blur-md animate-slide-up">
+          <div className="max-w-7xl mx-auto px-4 py-3 space-y-2">
+            {user && (user.role === 'admin' || user.role === 'recruiter') ? (
+              <Link
+                to={user.role === 'admin' ? '/admin' : '/recruiter'}
+                onClick={() => setOpen(false)}
+                className="block px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <Link
+                to="/"
+                onClick={() => setOpen(false)}
+                className="block px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
+              >
+                Home
+              </Link>
             )}
-            <Link to="/about" onClick={() => setOpen(false)} className="py-2 hover:text-cyan-300 transition">About</Link>
-            <Link to="/services" onClick={() => setOpen(false)} className="py-2 hover:text-cyan-300 transition">Services</Link>
-            <Link to="/contact" onClick={() => setOpen(false)} className="py-2 hover:text-cyan-300 transition">Contact</Link>
-
-            <div className="pt-2 border-t border-gray-800 flex items-center gap-3">
-              {!user ? (
+            {user && user.role !== 'admin' && user.role !== 'recruiter' && (
+              <>
                 <button
-                  onClick={() => { setOpen(false); navigate("/auth"); }}
-                  className="flex-1 px-4 py-2 bg-cyan-500 text-gray-900 rounded-full font-medium"
+                  onClick={() => handleUpload(true)}
+                  className="w-full text-left px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
                 >
-                  Login
+                  Upload Resume
                 </button>
-              ) : (
-                <>
-                  <button
-                    onClick={() => { setOpen(false); navigate("/profile"); }}
-                    className="flex-1 px-4 py-2 bg-gray-800 text-gray-200 rounded-full font-medium"
-                  >
-                    Edit Profile
-                  </button>
-
-                  <button
-                    onClick={() => { setOpen(false); handleLogout(); }}
-                    className="px-4 py-2 border border-gray-700 rounded-full text-sm text-red-400"
-                  >
-                    Logout
-                  </button>
-                </>
-              )}
-            </div>
+                <Link
+                  to="/jobs"
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
+                >
+                  Jobs
+                </Link>
+              </>
+            )}
+            <Link
+              to="/services"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
+            >
+              Services
+            </Link>
+            <Link
+              to="/contact"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
+            >
+              Contact
+            </Link>
+            <Link
+              to="/about"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 text-xs font-semibold text-gray-100 hover:bg-neon-cyan/10 hover:text-neon-cyan rounded-lg transition-colors duration-300"
+            >
+              About
+            </Link>
+            {!user && (
+              <button
+                onClick={() => {
+                  navigate("/auth");
+                  setOpen(false);
+                }}
+                className="w-full px-4 py-2 bg-gradient-to-r from-neon-cyan to-neon-blue text-dark-950 rounded-lg font-bold text-xs shadow-lg shadow-neon-cyan/50 mt-2 transition-all duration-300"
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       )}

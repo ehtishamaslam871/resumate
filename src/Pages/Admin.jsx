@@ -39,8 +39,14 @@ export default function AdminPanel() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const adminUser = JSON.parse(localStorage.getItem("resumate_user") || "null");
-        if (!adminUser || adminUser.role !== "admin") {
+        // Check both new API key ('user') and old demo key ('resumate_user')
+        let adminUser = JSON.parse(localStorage.getItem("user") || "null");
+        if (!adminUser) {
+          adminUser = JSON.parse(localStorage.getItem("resumate_user") || "null");
+        }
+        
+        const userRole = adminUser?.role ? adminUser.role.toLowerCase() : '';
+        if (!adminUser || userRole !== "admin") {
           navigate("/auth");
           return;
         }
@@ -129,11 +135,14 @@ export default function AdminPanel() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white">
+      <div className="min-h-screen bg-dark-950 text-white">
         <Navbar />
+        {/* Animated background */}
+        <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+        <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
         <div className="flex items-center justify-center min-h-[80vh]">
           <div className="text-center">
-            <Loader className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+            <Loader className="w-12 h-12 animate-spin text-neon-cyan mx-auto mb-4" />
             <p className="text-gray-300 text-lg">Loading admin panel...</p>
           </div>
         </div>
@@ -142,8 +151,11 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-dark-950 text-white">
       <Navbar />
+      {/* Animated background */}
+      <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+      <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
 
       <main className="max-w-7xl mx-auto px-6 py-16">
         {/* Header */}
@@ -169,41 +181,41 @@ export default function AdminPanel() {
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-12">
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+          <div className="card-glass card-glass-hover p-6 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
               <p className="text-gray-400">Total Users</p>
-              <Users className="w-5 h-5 text-cyan-400" />
+              <Users className="w-5 h-5 text-neon-cyan" />
             </div>
             <p className="text-3xl font-bold">{stats.totalUsers}</p>
           </div>
 
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+          <div className="card-glass card-glass-hover p-6 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
               <p className="text-gray-400">Total Jobs</p>
-              <Briefcase className="w-5 h-5 text-cyan-400" />
+              <Briefcase className="w-5 h-5 text-neon-cyan" />
             </div>
             <p className="text-3xl font-bold">{stats.totalJobs}</p>
           </div>
 
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+          <div className="card-glass card-glass-hover p-6 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
               <p className="text-gray-400">Total Resumes</p>
-              <FileText className="w-5 h-5 text-cyan-400" />
+              <FileText className="w-5 h-5 text-neon-cyan" />
             </div>
             <p className="text-3xl font-bold">{stats.totalResumes}</p>
           </div>
 
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+          <div className="card-glass card-glass-hover p-6 rounded-2xl">
             <div className="flex items-center justify-between mb-3">
               <p className="text-gray-400">Active Applications</p>
-              <TrendingUp className="w-5 h-5 text-cyan-400" />
+              <TrendingUp className="w-5 h-5 text-neon-cyan" />
             </div>
             <p className="text-3xl font-bold">{stats.activeApplications}</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-700 mb-8">
+        <div className="border-b border-dark-700 mb-8">
           <div className="flex gap-6">
             {[
               { id: "overview", label: "Overview" },
@@ -215,7 +227,7 @@ export default function AdminPanel() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`pb-4 px-2 font-medium transition border-b-2 ${
                   activeTab === tab.id
-                    ? "text-cyan-400 border-cyan-400"
+                    ? "text-neon-cyan border-neon-cyan"
                     : "text-gray-400 border-transparent hover:text-gray-300"
                 }`}
               >
@@ -229,44 +241,44 @@ export default function AdminPanel() {
         {activeTab === "overview" && (
           <div className="space-y-8">
             {/* Platform Health */}
-            <div className="bg-gray-800 p-8 rounded-2xl border border-gray-700">
+            <div className="card-glass card-glass-hover p-8 rounded-2xl">
               <h3 className="text-xl font-bold mb-6">Platform Health</h3>
               <div className="space-y-4">
                 <div>
                   <p className="text-gray-400 text-sm mb-2">User Growth</p>
-                  <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
-                    <div className="bg-cyan-500 h-full" style={{ width: "75%" }} />
+                  <div className="bg-dark-700 rounded-full h-2 overflow-hidden">
+                    <div className="bg-neon-cyan h-full" style={{ width: "75%" }} />
                   </div>
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm mb-2">System Load</p>
-                  <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
-                    <div className="bg-green-500 h-full" style={{ width: "35%" }} />
+                  <div className="bg-dark-700 rounded-full h-2 overflow-hidden">
+                    <div className="bg-neon-green h-full" style={{ width: "35%" }} />
                   </div>
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm mb-2">Database Usage</p>
-                  <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
-                    <div className="bg-yellow-500 h-full" style={{ width: "60%" }} />
+                  <div className="bg-dark-700 rounded-full h-2 overflow-hidden">
+                    <div className="bg-neon-pink h-full" style={{ width: "60%" }} />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Recent Activity */}
-            <div className="bg-gray-800 p-8 rounded-2xl border border-gray-700">
+            <div className="card-glass card-glass-hover p-8 rounded-2xl">
               <h3 className="text-xl font-bold mb-6">Recent Activity</h3>
               <div className="space-y-4">
                 {users.slice(0, 5).map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between py-3 border-b border-gray-700 last:border-b-0"
+                    className="flex items-center justify-between py-3 border-b border-dark-700 last:border-b-0"
                   >
                     <div>
                       <p className="font-medium">{user.name}</p>
                       <p className="text-sm text-gray-500">{user.email}</p>
                     </div>
-                    <span className="text-xs bg-gray-700 px-3 py-1 rounded-full">
+                    <span className="text-xs bg-dark-700 px-3 py-1 rounded-full">
                       {user.role || "user"}
                     </span>
                   </div>
@@ -291,7 +303,7 @@ export default function AdminPanel() {
                       placeholder="Name or email..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-cyan-400"
+                      className="input-modern pl-10"
                     />
                   </div>
                 </div>
@@ -301,7 +313,7 @@ export default function AdminPanel() {
                   <select
                     value={filterRole}
                     onChange={(e) => setFilterRole(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-cyan-400"
+                    className="input-modern"
                   >
                     <option value="">All Roles</option>
                     <option value="admin">Admin</option>
@@ -315,7 +327,7 @@ export default function AdminPanel() {
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:border-cyan-400"
+                    className="input-modern"
                   >
                     <option value="">All Status</option>
                     <option value="active">Active</option>
@@ -326,11 +338,11 @@ export default function AdminPanel() {
             </div>
 
             {/* Users Table */}
-            <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+            <div className="card-glass card-glass-hover rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-700 bg-gray-700/50">
+                    <tr className="border-b border-dark-700 bg-dark-900/50">
                       <th className="px-6 py-4 text-left text-sm font-medium">User</th>
                       <th className="px-6 py-4 text-left text-sm font-medium">Email</th>
                       <th className="px-6 py-4 text-left text-sm font-medium">Role</th>
@@ -341,11 +353,11 @@ export default function AdminPanel() {
                   </thead>
                   <tbody>
                     {filteredUsers.map((user) => (
-                      <tr key={user.id} className="border-b border-gray-700 hover:bg-gray-700/50">
+                      <tr key={user.id} className="border-b border-dark-700 hover:bg-dark-800/50">
                         <td className="px-6 py-4">{user.name}</td>
                         <td className="px-6 py-4 text-sm text-gray-400">{user.email}</td>
                         <td className="px-6 py-4">
-                          <span className="text-xs bg-cyan-500/20 text-cyan-300 px-3 py-1 rounded-full">
+                          <span className="text-xs bg-neon-cyan/20 text-neon-cyan px-3 py-1 rounded-full">
                             {user.role || "user"}
                           </span>
                         </td>
@@ -353,7 +365,7 @@ export default function AdminPanel() {
                           <span
                             className={`text-xs px-3 py-1 rounded-full ${
                               user.status === "active"
-                                ? "bg-green-500/20 text-green-400"
+                                ? "bg-neon-green/20 text-neon-green"
                                 : "bg-red-500/20 text-red-400"
                             }`}
                           >
@@ -375,37 +387,37 @@ export default function AdminPanel() {
                             </button>
 
                             {userMenuOpen === user.id && (
-                              <div className="absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg z-10">
+                              <div className="absolute right-0 mt-2 w-48 bg-dark-800 rounded-lg shadow-lg z-10">
                                 <button
                                   onClick={() => handleChangeRole(user.id, "admin")}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-600 text-sm"
+                                  className="w-full text-left px-4 py-2 hover:bg-dark-700 text-sm"
                                 >
                                   Make Admin
                                 </button>
                                 <button
                                   onClick={() => handleChangeRole(user.id, "recruiter")}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-600 text-sm"
+                                  className="w-full text-left px-4 py-2 hover:bg-dark-700 text-sm"
                                 >
                                   Make Recruiter
                                 </button>
                                 <button
                                   onClick={() => handleChangeRole(user.id, "job seeker")}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-600 text-sm"
+                                  className="w-full text-left px-4 py-2 hover:bg-dark-700 text-sm"
                                 >
                                   Make Job Seeker
                                 </button>
-                                <hr className="border-gray-600 my-1" />
+                                <hr className="border-dark-700 my-1" />
                                 <button
                                   onClick={() => handleSuspendUser(user.id)}
                                   disabled={suspendingId === user.id}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-600 text-sm text-yellow-400"
+                                  className="w-full text-left px-4 py-2 hover:bg-dark-700 text-sm text-neon-pink"
                                 >
                                   {suspendingId === user.id ? "..." : "Suspend"}
                                 </button>
                                 <button
                                   onClick={() => handleDeleteUser(user.id)}
                                   disabled={deletingId === user.id}
-                                  className="w-full text-left px-4 py-2 hover:bg-gray-600 text-sm text-red-400"
+                                  className="w-full text-left px-4 py-2 hover:bg-dark-700 text-sm text-red-400"
                                 >
                                   {deletingId === user.id ? "..." : "Delete"}
                                 </button>
@@ -424,12 +436,12 @@ export default function AdminPanel() {
 
         {/* System Settings Tab */}
         {activeTab === "system" && (
-          <div className="bg-gray-800 p-8 rounded-2xl border border-gray-700">
+          <div className="card-glass card-glass-hover p-8 rounded-2xl">
             <h3 className="text-xl font-bold mb-8">System Configuration</h3>
 
             <div className="space-y-6">
               {/* Email Settings */}
-              <div className="border-b border-gray-700 pb-6">
+              <div className="border-b border-dark-700 pb-6">
                 <h4 className="font-semibold mb-4 flex items-center gap-2">
                   <Mail className="w-5 h-5" />
                   Email Settings
@@ -447,7 +459,7 @@ export default function AdminPanel() {
               </div>
 
               {/* Security Settings */}
-              <div className="border-b border-gray-700 pb-6">
+              <div className="border-b border-dark-700 pb-6">
                 <h4 className="font-semibold mb-4">Security Settings</h4>
                 <div className="space-y-3">
                   <label className="flex items-center gap-3">
@@ -470,8 +482,8 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            <div className="mt-8 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-              <p className="text-cyan-300 text-sm">
+            <div className="mt-8 p-4 bg-neon-cyan/10 border border-neon-cyan/30 rounded-lg">
+              <p className="text-neon-cyan text-sm">
                 💡 System settings affect all users. Changes are applied immediately.
               </p>
             </div>

@@ -59,11 +59,15 @@ export default function JobRecommendations() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
+      <div className="min-h-screen bg-dark-950 text-white overflow-hidden">
         <Navbar />
-        <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute -top-40 -left-40 w-80 h-80 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-gradient-to-br from-neon-purple/5 to-neon-cyan/5 rounded-full blur-3xl"></div>
+        </div>
+        <div className="flex items-center justify-center min-h-[80vh] relative z-10">
           <div className="text-center">
-            <Loader className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+            <Loader className="w-16 h-16 animate-spin text-neon-cyan mx-auto mb-4" />
             <p className="text-gray-300 text-lg">Analyzing recommendations...</p>
           </div>
         </div>
@@ -72,45 +76,45 @@ export default function JobRecommendations() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-dark-950 text-white overflow-hidden">
       <Navbar />
 
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-gradient-to-br from-cyan-500/20 to-teal-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-gradient-to-br from-teal-500/10 to-cyan-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute -top-40 -left-40 w-80 h-80 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-gradient-to-br from-neon-purple/5 to-neon-cyan/5 rounded-full blur-3xl"></div>
       </div>
 
       <main className="max-w-6xl mx-auto px-6 py-16 relative z-10">
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-4">
-            <Zap className="w-8 h-8 text-cyan-400" />
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">
+            <Zap className="w-8 h-8 text-neon-cyan" />
+            <h1 className="text-5xl font-bold text-gray-100">
               Personalized Recommendations
             </h1>
           </div>
           <p className="text-gray-400 text-lg">
-            Based on your resume and skills, we found <span className="text-cyan-400 font-bold">{jobs.length}</span> perfectly matched positions
+            Based on your resume and skills, we found <span className="text-neon-cyan font-bold">{jobs.length}</span> perfectly matched positions
           </p>
         </div>
 
         {error && (
-          <div className="mb-8 p-4 bg-red-500/20 border border-red-500/30 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="mb-8 p-6 bg-red-500/20 border border-red-500/50 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-red-400">Error</p>
+              <p className="font-bold text-red-400 text-base">Error</p>
               <p className="text-red-300 text-sm mt-1">{error}</p>
             </div>
           </div>
         )}
 
         {jobs.length === 0 ? (
-          <div className="bg-gray-800/40 backdrop-blur border border-gray-700/50 p-16 rounded-2xl text-center shadow-lg shadow-cyan-500/10">
+          <div className="card-glass p-16 rounded-2xl text-center border border-neon-cyan/20">
             <div className="text-6xl mb-6 opacity-50">🔍</div>
-            <h3 className="text-2xl font-bold mb-4">No Recommendations Yet</h3>
+            <h3 className="text-2xl font-bold text-gray-100 mb-4">No Recommendations Yet</h3>
             <p className="text-gray-400 mb-8 text-lg">Upload your resume to get personalized job recommendations based on your skills and experience.</p>
             <button
               onClick={() => navigate('/upload')}
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-gray-900 rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition transform hover:scale-105"
+              className="btn-primary px-8 py-4 font-bold text-lg"
             >
               Upload Your Resume
             </button>
@@ -118,40 +122,46 @@ export default function JobRecommendations() {
         ) : (
           <div className="space-y-6">
             {jobs.map((job) => {
-              const matchBadge = getMatchBadge(job.matchScore || 0);
+              const matchScore = job.matchScore || 0;
+              const matchBadge = matchScore >= 80 
+                ? { bg: 'bg-neon-green/20', border: 'border-neon-green/50', text: 'text-neon-green', label: 'Excellent Match' }
+                : matchScore >= 60 
+                ? { bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', text: 'text-yellow-400', label: 'Good Match' }
+                : { bg: 'bg-neon-blue/20', border: 'border-neon-blue/50', text: 'text-neon-blue', label: 'Possible Match' };
+              
               return (
                 <div
                   key={job._id}
-                  className="bg-gray-800/40 backdrop-blur border border-gray-700/50 p-6 rounded-2xl hover:border-cyan-500/50 transition group shadow-lg shadow-cyan-500/5"
+                  className="card-glass card-glass-hover p-8 rounded-2xl border border-neon-cyan/20"
                 >
-                  <div className="flex items-start justify-between gap-6 mb-4">
+                  <div className="flex items-start justify-between gap-6 mb-6">
                     <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-white group-hover:text-cyan-400 transition mb-2">{job.title}</h3>
-                      <p className="text-cyan-400 font-semibold text-lg mb-3">{job.company}</p>
-                      <p className="text-gray-300 line-clamp-2 mb-4">{job.description?.substring(0, 150)}...</p>
+                      <h3 className="text-2xl font-bold text-gray-100 mb-2">{job.title}</h3>
+                      <p className="text-neon-cyan font-semibold text-lg mb-3">{job.company}</p>
+                      <p className="text-gray-300 line-clamp-2">{job.description?.substring(0, 150)}...</p>
                     </div>
-                    <div className={`${matchBadge.bg} ${matchBadge.border} border px-6 py-4 rounded-xl flex flex-col items-center justify-center min-w-fit shadow-lg ${matchBadge.text.replace('text-', 'shadow-')}/20`}>
-                      <div className={`text-4xl font-bold ${matchBadge.text}`}>{Math.round(job.matchScore)}%</div>
-                      <div className={`text-xs font-semibold mt-2 ${matchBadge.text}`}>{matchBadge.label}</div>
+                    <div className={`${matchBadge.bg} ${matchBadge.border} border px-8 py-6 rounded-2xl flex flex-col items-center justify-center min-w-fit`}>
+                      <div className={`text-5xl font-bold ${matchBadge.text}`}>{Math.round(matchScore)}%</div>
+                      <div className={`text-xs font-bold mt-3 ${matchBadge.text} uppercase tracking-wider`}>{matchBadge.label}</div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-gray-900/50 p-4 rounded-lg">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-dark-800/30 p-6 rounded-xl border border-dark-700/50">
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Skills Match</p>
-                      <p className="text-cyan-400 font-semibold">{Math.round(job.breakdown?.skills || 0)}%</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Skills Match</p>
+                      <p className="text-neon-cyan font-semibold text-base">{Math.round(job.breakdown?.skills || 0)}%</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Experience</p>
-                      <p className="text-cyan-400 font-semibold">{Math.round(job.breakdown?.experience || 0)}%</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Experience</p>
+                      <p className="text-neon-cyan font-semibold text-base">{Math.round(job.breakdown?.experience || 0)}%</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Location Match</p>
-                      <p className="text-cyan-400 font-semibold">{Math.round(job.breakdown?.location || 0)}%</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Location Match</p>
+                      <p className="text-neon-cyan font-semibold text-base">{Math.round(job.breakdown?.location || 0)}%</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Salary Range</p>
-                      <p className="text-cyan-400 font-semibold">${(job.salary / 1000).toFixed(0)}k</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Salary Range</p>
+                      <p className="text-neon-cyan font-semibold text-base">${(job.salary / 1000).toFixed(0)}k</p>
                     </div>
                   </div>
 
@@ -159,27 +169,27 @@ export default function JobRecommendations() {
                     <button
                       onClick={() => handleApply(job._id)}
                       disabled={applying[job._id]}
-                      className={`flex-1 min-w-fit px-6 py-3 rounded-lg font-semibold transition transform hover:scale-105 flex items-center justify-center gap-2 ${
+                      className={`flex-1 min-w-fit px-8 py-3 rounded-lg font-bold text-base transition flex items-center justify-center gap-2 ${
                         applying[job._id]
-                          ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-cyan-500 to-teal-500 text-gray-900 hover:shadow-lg hover:shadow-cyan-500/50'
+                          ? 'bg-dark-800/50 text-gray-400 cursor-not-allowed'
+                          : 'btn-primary shadow-lg shadow-neon-cyan/50'
                       }`}
                     >
                       {applying[job._id] ? (
                         <>
-                          <Loader className="w-4 h-4 animate-spin" />
+                          <Loader className="w-5 h-5 animate-spin" />
                           Applying...
                         </>
                       ) : (
                         <>
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className="w-5 h-5" />
                           Apply Now
                         </>
                       )}
                     </button>
                     <button
                       onClick={() => navigate(`/job/${job.title}`)}
-                      className="flex-1 min-w-fit px-6 py-3 border border-cyan-500/50 text-cyan-400 rounded-lg font-semibold hover:bg-cyan-500/10 transition"
+                      className="flex-1 min-w-fit px-8 py-3 bg-neon-cyan/10 border border-neon-cyan/50 text-neon-cyan rounded-lg font-bold hover:bg-neon-cyan/20 transition"
                     >
                       View Details
                     </button>

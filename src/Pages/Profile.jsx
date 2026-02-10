@@ -32,7 +32,7 @@ export default function Profile() {
         // Only load applications for job seekers
         const userRole = (user?.role || '').toLowerCase()
         if (!userRole.includes('recruit') && !userRole.includes('admin')) {
-          const applicationsResponse = await api.applications.getUserApplications()
+          const applicationsResponse = await api.application.getUserApplications()
           setApplications(applicationsResponse.applications || [])
         }
       } catch (err) {
@@ -111,47 +111,16 @@ export default function Profile() {
     }
   }
 
-  const cancelApplication = (app) => {
+  const cancelApplication = async (app) => {
     if (!confirm('Withdraw this application?')) return
     try {
-      const appsKey = 'resumate_applications'
-      const existing = JSON.parse(localStorage.getItem(appsKey) || '[]')
-      const hiddenKey = 'resumate_hidden_applications'
-      const hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]')
-
-      // If the stored application has a userId and belongs to the current user, remove it.
-      // If it is a legacy entry (no userId), mark it as hidden for this user instead.
-      const filtered = existing.filter(a => {
-        if (a.job !== app.job || a.company !== app.company) return true
-        if (!a.userId) {
-          // keep the legacy entry in the global list, but add a per-user hidden record below
-          return true
-        }
-        // remove only if it belongs to current user
-        return !(a.userId === user?.id || a.userId === user?.email)
-      })
-
-      // If this was a legacy entry (no userId), record a hidden entry for this user
-      if (!app.userId) {
-        const alreadyHidden = hidden.some(h => h.job === app.job && h.company === app.company && (h.userId === user?.id || h.userId === user?.email))
-        if (!alreadyHidden) {
-          hidden.unshift({ job: app.job, company: app.company, userId: user?.id || user?.email, hiddenAt: new Date().toISOString() })
-          localStorage.setItem(hiddenKey, JSON.stringify(hidden))
-        }
-      }
-
-      localStorage.setItem(appsKey, JSON.stringify(filtered))
-
-      // update in-memory list for this profile view (respecting hidden list)
-      const visible = filtered.filter(ap => {
-        const isHidden = hidden.some(h => h.job === ap.job && h.company === ap.company && (h.userId === user?.id || h.userId === user?.email))
-        if (isHidden) return false
-        if (!ap.userId) return true
-        return ap.userId === user?.id || ap.userId === user?.email
-      })
-      setApplications(visible)
-    } catch (e) {
-      // ignore storage errors
+      await api.application.deleteApplication(app._id)
+      setApplications(prev => prev.filter(a => a._id !== app._id))
+      setMessage('Application withdrawn successfully')
+      setTimeout(() => setMessage(''), 2000)
+    } catch (err) {
+      setMessage(err.message || 'Failed to withdraw application')
+      setTimeout(() => setMessage(''), 2500)
     }
   }
 
@@ -215,42 +184,42 @@ export default function Profile() {
   const isPrivileged = (role || '').toLowerCase().includes('recruit') || (role || '').toLowerCase().includes('admin')
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-dark-950">
       <Navbar />
 
       <div className="px-6 py-12 max-w-4xl mx-auto space-y-8">
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+        <div className="card-glass-hover p-8">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-400 to-teal-400
-                          flex items-center justify-center text-gray-900 font-extrabold text-lg overflow-hidden">
+            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-extrabold text-lg overflow-hidden">
               {avatar ? (
-                <img src={avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
+                <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
                 initials || 'U'
               )}
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Profile</h1>
+              <h1 className="text-2xl font-display font-bold text-gray-100">Profile</h1>
               <p className="text-gray-400 text-sm">Manage your account details and security settings.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
             {message && (
-              <div className="p-3 bg-green-900/30 border border-green-700 rounded text-green-300 text-sm">
-                {message}
+              <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-300 text-sm flex items-start gap-3">
+                <span>✅</span>
+                <div>{message}</div>
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
-                className="p-3 bg-gray-700 rounded placeholder-gray-400"
+                className="input-modern"
                 placeholder="Full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <input
-                className="p-3 bg-gray-700 rounded placeholder-gray-400"
+                className="input-modern"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -259,18 +228,18 @@ export default function Profile() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
               <div>
-                <label className="text-sm text-gray-300 block mb-1">Avatar</label>
+                <label className="text-sm text-gray-300 block mb-1 font-semibold">Avatar</label>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-2 bg-gray-700 rounded hover:bg-gray-600 text-sm"
+                    className="px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg hover:bg-dark-700 text-sm transition"
                   >
                     Upload
                   </button>
                   {avatar && (
                     <button
                       onClick={removeAvatar}
-                      className="px-3 py-2 bg-red-700 rounded hover:bg-red-600 text-sm"
+                      className="px-3 py-2 bg-red-500/20 border border-red-500/50 rounded-lg hover:bg-red-500/30 text-sm transition text-red-400"
                     >
                       Remove
                     </button>
@@ -286,40 +255,40 @@ export default function Profile() {
               </div>
 
               <div className="col-span-2">
-                <label className="text-sm text-gray-300 block mb-1">Role</label>
-                <div className="p-3 bg-gray-900 rounded text-sm text-gray-300">{role}</div>
+                <label className="text-sm text-gray-300 block mb-1 font-semibold">Role</label>
+                <div className="p-3 bg-dark-800 border border-dark-700/50 rounded-lg text-sm text-gray-300">{role}</div>
               </div>
             </div>
 
             <div>
-              <label className="text-sm text-gray-300 block mb-1">New password (leave blank to keep)</label>
+              <label className="text-sm text-gray-300 block mb-1 font-semibold">New password (leave blank to keep)</label>
               <input
                 type="password"
-                className="w-full p-3 bg-gray-700 rounded placeholder-gray-400"
+                className="input-modern w-full"
                 placeholder="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pt-4 flex-wrap">
               <button
                 onClick={saveChanges}
-                className="px-4 py-2 bg-cyan-500 text-gray-900 rounded font-semibold hover:bg-cyan-600"
+                className="btn-primary"
               >
                 Save Changes
               </button>
 
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 text-sm"
+                className="btn-secondary"
               >
                 Logout
               </button>
 
               <button
                 onClick={handleDeleteAccount}
-                className="ml-auto px-3 py-2 bg-red-700 rounded hover:bg-red-600 text-sm"
+                className="ml-auto px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-lg hover:bg-red-500/30 text-red-400 text-sm transition font-medium"
               >
                 Delete Account
               </button>
@@ -327,43 +296,43 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-          <h2 className="text-lg font-bold mb-2">Account Info</h2>
-          <div className="text-sm text-gray-400">
-            <div><strong>ID:</strong> <span className="text-gray-300">{user.id || '—'}</span></div>
-            <div className="mt-1"><strong>Registered:</strong> <span className="text-gray-300">{user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}</span></div>
+        <div className="card-glass-hover p-8">
+          <h2 className="text-lg font-bold mb-4 text-gray-100">Account Info</h2>
+          <div className="text-sm text-gray-400 space-y-2">
+            <div><strong className="text-gray-300">ID:</strong> <span className="text-gray-400">{user.id || '—'}</span></div>
+            <div><strong className="text-gray-300">Registered:</strong> <span className="text-gray-400">{user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}</span></div>
           </div>
         </div>
 
         {!isPrivileged && (
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h2 className="text-lg font-bold mb-2">Interview Invitations</h2>
+          <div className="card-glass-hover p-8">
+            <h2 className="text-lg font-bold mb-4 text-gray-100">Interview Invitations</h2>
             {interviewInvites.length === 0 ? (
               <div className="text-sm text-gray-400">No pending interview invitations.</div>
             ) : (
               <div className="space-y-3">
                 {interviewInvites.map((invite) => (
-                  <div key={invite.id} className="p-4 bg-gray-900 rounded border border-blue-600/30">
+                  <div key={invite.id} className="p-4 card-glass border border-neon-blue/30">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div className="font-semibold text-blue-300">{invite.jobTitle}</div>
+                        <div className="font-semibold text-neon-cyan">{invite.jobTitle}</div>
                         <div className="text-sm text-gray-400">From: {invite.recruiterName}</div>
                         <div className="text-sm text-gray-300 mt-1">
                           <strong>Scheduled:</strong> {new Date(invite.scheduledDate).toLocaleDateString()} at {invite.scheduledTime}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-500 bg-blue-500/10 px-2 py-1 rounded">Interview Scheduled</div>
+                      <div className="text-xs text-neon-blue/80 bg-neon-blue/10 px-2 py-1 rounded">Interview Scheduled</div>
                     </div>
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex gap-2 flex-wrap">
                       <button
                         onClick={() => respondToInterview(invite, true)}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                        className="px-4 py-2 bg-green-500/20 border border-green-500/50 text-green-400 rounded-lg hover:bg-green-500/30 text-sm transition font-medium"
                       >
                         Accept & Start Interview
                       </button>
                       <button
                         onClick={() => respondToInterview(invite, false)}
-                        className="px-4 py-2 bg-red-700 rounded hover:bg-red-600 text-sm"
+                        className="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/30 text-sm transition"
                       >
                         Decline
                       </button>
@@ -375,8 +344,8 @@ export default function Profile() {
           </div>
         )}
 
-        <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-          <h2 className="text-lg font-bold mb-2">Applications</h2>
+        <div className="card-glass-hover p-8">
+          <h2 className="text-lg font-bold mb-4 text-gray-100">Applications</h2>
           {isPrivileged ? (
             <div className="text-sm text-gray-400">Applications are only visible for Job Seeker accounts.</div>
           ) : applications.length === 0 ? (
@@ -384,16 +353,28 @@ export default function Profile() {
           ) : (
             <div className="space-y-3">
               {applications.map((a, idx) => (
-                <div key={idx} className="p-3 bg-gray-900 rounded flex items-center justify-between">
+                <div key={a._id || idx} className="p-4 card-glass border border-dark-700/50 flex items-center justify-between">
                   <div>
-                    <div className="font-semibold text-white">{a.job}</div>
-                    <div className="text-sm text-gray-400">{a.company} • {a.date ? new Date(a.date).toLocaleString() : '—'}</div>
+                    <div className="font-semibold text-gray-100">{a.jobTitle || a.job?.title || 'Untitled Job'}</div>
+                    <div className="text-sm text-gray-400">{a.companyName || a.job?.company || '—'} • {a.appliedDate ? new Date(a.appliedDate).toLocaleDateString() : a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${a.status === 'Approved' ? 'bg-green-500 text-gray-900' : a.status === 'Rejected' ? 'bg-red-600 text-gray-100' : 'bg-yellow-500 text-gray-900'}`}>
-                      {a.status || 'Pending'}
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      a.status === 'accepted' 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                        : a.status === 'rejected' 
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                        : a.status === 'shortlisted'
+                        ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50'
+                        : a.status === 'reviewing'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                        : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                    }`}>
+                      {a.status === 'applied' ? 'Pending' : a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'Pending'}
                     </div>
-                    <button onClick={() => cancelApplication(a)} className="px-3 py-1 bg-red-700 rounded text-sm hover:bg-red-600">Cancel</button>
+                    {a.status === 'applied' && (
+                      <button onClick={() => cancelApplication(a)} className="px-3 py-1 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm hover:bg-red-500/30 transition">Withdraw</button>
+                    )}
                   </div>
                 </div>
               ))}

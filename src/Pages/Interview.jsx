@@ -112,11 +112,13 @@ export default function Interview() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white">
+      <div className="min-h-screen bg-dark-950 text-white">
         <Navbar />
+        <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+        <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
         <div className="flex items-center justify-center min-h-[80vh]">
           <div className="text-center">
-            <Loader className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+            <Loader className="w-16 h-16 animate-spin text-neon-cyan mx-auto mb-4" />
             <p className="text-gray-300 text-lg">Loading interview...</p>
           </div>
         </div>
@@ -126,13 +128,15 @@ export default function Interview() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white">
+      <div className="min-h-screen bg-dark-950 text-white">
         <Navbar />
+        <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+        <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
         <main className="max-w-4xl mx-auto px-6 py-16">
-          <div className="p-6 bg-red-500/20 border border-red-500/50 rounded-lg flex items-start gap-4">
-            <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
+          <div className="p-8 bg-red-500/20 border border-red-500/50 rounded-2xl flex items-start gap-4">
+            <AlertCircle className="w-8 h-8 text-red-400 flex-shrink-0 mt-1" />
             <div>
-              <h3 className="font-bold text-red-400 mb-2">Error Starting Interview</h3>
+              <h3 className="font-bold text-red-400 mb-2 text-lg">Error Starting Interview</h3>
               <p className="text-red-300">{error}</p>
             </div>
           </div>
@@ -151,74 +155,76 @@ export default function Interview() {
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-dark-950 text-white">
       <Navbar />
+      <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+      <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
 
       <main className="max-w-4xl mx-auto px-6 py-16">
         {!completed ? (
           <div>
             {/* Interview Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold mb-2">Interview Session</h1>
-              <p className="text-gray-400">{interview.jobTitle}</p>
+            <div className="mb-12">
+              <h1 className="text-4xl font-bold mb-3 text-gray-100">Interview Session</h1>
+              <p className="text-neon-cyan font-semibold text-lg">{interview.jobTitle}</p>
             </div>
 
             {/* Progress Bar */}
-            <div className="mb-8 bg-gray-800 p-6 rounded-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-gray-400">
+            <div className="card-glass p-8 rounded-2xl mb-12 border border-neon-cyan/20">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-gray-400 font-medium">
                   Question {currentQuestionIndex + 1} of {totalQuestions}
                 </p>
-                <p className="text-cyan-400 font-semibold">{formatTime(recordingTime)}</p>
+                <p className="text-neon-cyan font-bold text-lg">{formatTime(recordingTime)}</p>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-dark-800/50 rounded-full h-3 overflow-hidden border border-dark-600">
                 <div
-                  className="bg-gradient-to-r from-cyan-500 to-teal-400 h-full transition-all duration-300"
+                  className="bg-gradient-to-r from-neon-cyan to-neon-purple h-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
 
             {/* Question Section */}
-            <div className="bg-gray-800 p-8 rounded-2xl mb-8">
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
-                  <span className="w-10 h-10 bg-cyan-500 text-gray-900 rounded-full flex items-center justify-center font-bold">
+            <div className="card-glass p-10 rounded-2xl mb-10 border border-neon-cyan/20">
+              <div className="mb-10">
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-4">
+                  <span className="w-12 h-12 bg-gradient-to-br from-neon-cyan to-neon-purple text-dark-950 rounded-full flex items-center justify-center font-bold text-lg">
                     {currentQuestionIndex + 1}
                   </span>
-                  {currentQuestion}
+                  <span className="text-gray-100">{currentQuestion}</span>
                 </h2>
-                <p className="text-gray-400">
+                <p className="text-gray-400 text-lg">
                   Take your time to provide a thoughtful answer. Speak naturally and try to be specific with examples.
                 </p>
               </div>
 
               {/* Answer Input */}
               <div className="space-y-4">
-                <label className="block text-sm font-medium">Your Answer</label>
+                <label className="block text-sm font-semibold text-neon-cyan">Your Answer</label>
                 <textarea
                   value={currentAnswer}
                   onChange={handleAnswerChange}
                   placeholder="Type or paste your answer here. You can include multiple paragraphs."
-                  className="w-full h-40 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-cyan-400 resize-none"
+                  className="input-modern w-full h-48 resize-none"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 text-right">
                   Character count: {currentAnswer.length}
                 </p>
               </div>
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 mb-10">
               {currentQuestionIndex > 0 && (
                 <button
                   onClick={() => {
                     setCurrentAnswer(answers[currentQuestionIndex - 1] || '');
                     setCurrentQuestionIndex(currentQuestionIndex - 1);
                   }}
-                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition"
+                  className="btn-secondary px-8 py-3 font-bold"
                 >
-                  ← Previous Question
+                  ← Previous
                 </button>
               )}
 
@@ -226,10 +232,10 @@ export default function Interview() {
                 <button
                   onClick={handleNextQuestion}
                   disabled={!currentAnswer.trim() || submitting}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-3 rounded-lg font-bold transition flex items-center justify-center gap-2 ${
                     currentAnswer.trim() && !submitting
-                      ? 'bg-cyan-500 text-gray-900 hover:bg-cyan-600'
-                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      ? 'btn-primary'
+                      : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
                   }`}
                 >
                   Next Question →
@@ -238,10 +244,10 @@ export default function Interview() {
                 <button
                   onClick={() => handleSubmitInterview(answers)}
                   disabled={!currentAnswer.trim() || submitting}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-3 rounded-lg font-bold transition flex items-center justify-center gap-2 ${
                     currentAnswer.trim() && !submitting
-                      ? 'bg-green-500 text-gray-900 hover:bg-green-600'
-                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      ? 'bg-gradient-to-r from-neon-green to-neon-cyan text-dark-950 hover:shadow-lg hover:shadow-neon-green/50 shadow-neon-green/30'
+                      : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
                   }`}
                 >
                   {submitting ? (
@@ -260,41 +266,53 @@ export default function Interview() {
             </div>
 
             {/* Tips Section */}
-            <div className="mt-8 bg-cyan-500/10 border border-cyan-500/30 p-6 rounded-2xl">
-              <h3 className="font-bold text-cyan-300 mb-3">💡 Interview Tips</h3>
-              <ul className="space-y-2 text-gray-300 text-sm">
-                <li>✓ Answer the question directly and provide specific examples</li>
-                <li>✓ Be concise but thorough (1-3 minutes per question)</li>
-                <li>✓ Highlight relevant skills and achievements</li>
-                <li>✓ Show enthusiasm for the role and company</li>
+            <div className="card-glass p-8 rounded-2xl border border-neon-cyan/20">
+              <h3 className="font-bold text-neon-cyan mb-4 text-lg">💡 Interview Tips</h3>
+              <ul className="space-y-3 text-gray-300">
+                <li className="flex items-start gap-3">
+                  <span className="text-neon-green font-bold mt-1">✓</span>
+                  <span>Answer the question directly and provide specific examples</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-neon-green font-bold mt-1">✓</span>
+                  <span>Be concise but thorough (1-3 minutes per question)</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-neon-green font-bold mt-1">✓</span>
+                  <span>Highlight relevant skills and achievements</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-neon-green font-bold mt-1">✓</span>
+                  <span>Show enthusiasm for the role and company</span>
+                </li>
               </ul>
             </div>
           </div>
         ) : (
           /* Completion Screen */
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-12 rounded-2xl text-center">
-            <div className="mb-6">
-              <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-12 h-12 text-green-400" />
+          <div className="card-glass card-glass-hover p-12 rounded-2xl text-center border border-neon-green/20">
+            <div className="mb-8">
+              <div className="w-24 h-24 bg-neon-green/20 border border-neon-green/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-16 h-16 text-neon-green" />
               </div>
-              <h2 className="text-3xl font-bold mb-2">Interview Completed!</h2>
-              <p className="text-gray-400 mb-6">Thank you for completing the interview. We'll review your responses and get back to you soon.</p>
+              <h2 className="text-4xl font-bold mb-3 text-gray-100">Interview Completed!</h2>
+              <p className="text-gray-400 text-lg mb-8">Thank you for completing the interview. We'll review your responses and get back to you soon.</p>
             </div>
 
             {/* Feedback Section */}
             {feedback && (
-              <div className="bg-gray-700/50 p-6 rounded-lg mb-8 text-left max-w-2xl mx-auto">
-                <h3 className="font-bold text-cyan-300 mb-4">Interview Feedback</h3>
+              <div className="bg-dark-800/50 p-8 rounded-xl mb-10 text-left max-w-2xl mx-auto border border-dark-600">
+                <h3 className="font-bold text-neon-cyan mb-6 text-lg">Interview Feedback</h3>
                 
                 {feedback.score && (
-                  <div className="mb-6 p-4 bg-gray-600/50 rounded-lg">
-                    <p className="text-gray-400 mb-2">Overall Score</p>
-                    <div className="flex items-center gap-4">
-                      <div className="text-4xl font-bold text-cyan-400">{Math.round(feedback.score)}%</div>
+                  <div className="mb-8 p-6 bg-gradient-to-br from-neon-cyan/10 to-neon-purple/10 border border-neon-cyan/20 rounded-lg">
+                    <p className="text-gray-400 mb-3 font-medium">Overall Score</p>
+                    <div className="flex items-center gap-6">
+                      <div className="text-5xl font-bold text-neon-cyan">{Math.round(feedback.score)}%</div>
                       <div className="text-sm text-gray-300">
-                        <p className="font-medium">Performance</p>
-                        <p className={feedback.score >= 80 ? 'text-green-400' : feedback.score >= 60 ? 'text-yellow-400' : 'text-red-400'}>
-                          {feedback.score >= 80 ? 'Excellent' : feedback.score >= 60 ? 'Good' : 'Needs Improvement'}
+                        <p className="font-semibold mb-1">Performance Level</p>
+                        <p className={feedback.score >= 80 ? 'text-neon-green font-bold' : feedback.score >= 60 ? 'text-yellow-400 font-bold' : 'text-red-400 font-bold'}>
+                          {feedback.score >= 80 ? '● Excellent' : feedback.score >= 60 ? '● Good' : '● Needs Improvement'}
                         </p>
                       </div>
                     </div>
@@ -302,11 +320,14 @@ export default function Interview() {
                 )}
 
                 {feedback.strengths && (
-                  <div className="mb-4">
-                    <p className="font-medium text-green-400 mb-2">✓ Strengths</p>
-                    <ul className="space-y-1 text-sm text-gray-300">
+                  <div className="mb-6">
+                    <p className="font-bold text-neon-green mb-3">✓ Your Strengths</p>
+                    <ul className="space-y-2">
                       {feedback.strengths.map((strength, idx) => (
-                        <li key={idx}>• {strength}</li>
+                        <li key={idx} className="text-gray-300 flex items-start gap-3">
+                          <span className="text-neon-green mt-1">•</span>
+                          <span>{strength}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -314,10 +335,13 @@ export default function Interview() {
 
                 {feedback.areasForImprovement && (
                   <div>
-                    <p className="font-medium text-yellow-400 mb-2">→ Areas for Improvement</p>
-                    <ul className="space-y-1 text-sm text-gray-300">
+                    <p className="font-bold text-yellow-400 mb-3">→ Areas for Improvement</p>
+                    <ul className="space-y-2">
                       {feedback.areasForImprovement.map((area, idx) => (
-                        <li key={idx}>• {area}</li>
+                        <li key={idx} className="text-gray-300 flex items-start gap-3">
+                          <span className="text-yellow-400 mt-1">•</span>
+                          <span>{area}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -325,11 +349,11 @@ export default function Interview() {
               </div>
             )}
 
-            <p className="text-gray-500 text-sm mb-6">Redirecting to your profile in a few seconds...</p>
+            <p className="text-gray-500 text-sm mb-8">Redirecting to your profile in a few seconds...</p>
 
             <button
               onClick={() => navigate('/profile')}
-              className="px-6 py-3 bg-cyan-500 text-gray-900 rounded-lg font-semibold hover:bg-cyan-600 transition"
+              className="btn-primary px-8 py-3 font-bold"
             >
               Go to Profile
             </button>

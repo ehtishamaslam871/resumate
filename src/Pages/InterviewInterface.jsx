@@ -71,9 +71,11 @@ export default function InterviewInterface() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-dark-950 text-white flex items-center justify-center">
+        <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+        <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
         <div className="text-center">
-          <Loader className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+          <Loader className="w-16 h-16 animate-spin text-neon-cyan mx-auto mb-4" />
           <p className="text-gray-300 text-lg">Loading Interview...</p>
         </div>
       </div>
@@ -82,13 +84,15 @@ export default function InterviewInterface() {
 
   if (!interview?.questions) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-dark-950 text-white flex items-center justify-center">
+        <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+        <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className="text-gray-300 text-lg">Interview Not Found</p>
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <p className="text-gray-300 text-xl mb-8">Interview Not Found</p>
           <button
             onClick={() => navigate(-1)}
-            className="mt-6 px-6 py-2 bg-gradient-to-r from-cyan-500 to-teal-500 text-gray-900 rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition"
+            className="btn-primary px-8 py-3 font-bold"
           >
             Go Back
           </button>
@@ -102,97 +106,95 @@ export default function InterviewInterface() {
   const answered = Object.values(feedback).filter(f => f).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white overflow-hidden">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-gradient-to-br from-cyan-500/20 to-teal-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-gradient-to-br from-teal-500/10 to-cyan-500/20 rounded-full blur-3xl"></div>
-      </div>
+    <div className="min-h-screen bg-dark-950 text-white overflow-hidden">
+      <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+      <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
 
       <main className="max-w-4xl mx-auto px-6 py-12 relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-10">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-700/50 rounded-lg hover:bg-gray-800/40 transition"
+            className="flex items-center gap-2 px-4 py-2 btn-secondary font-bold"
           >
             <ArrowLeft className="w-4 h-4" />
-            Exit Interview
+            Exit
           </button>
-          <div className="flex items-center gap-2 text-gray-400">
-            <Clock className="w-4 h-4" />
-            <span>15 min session</span>
+          <div className="flex items-center gap-3 card-glass px-5 py-2 rounded-lg border border-neon-cyan/20">
+            <Clock className="w-5 h-5 text-neon-cyan" />
+            <span className="text-neon-cyan font-semibold">15 min session</span>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">
+        <div className="mb-12">
+          <div className="flex justify-between items-center mb-5">
+            <h2 className="text-4xl font-bold text-gradient">
               Interview Session
             </h2>
-            <span className="text-gray-400">
+            <span className="badge-primary text-sm">
               {answered}/{interview.questions.length} answered
             </span>
           </div>
-          <div className="w-full h-2 bg-gray-800/50 rounded-full overflow-hidden">
+          <div className="w-full h-3 bg-dark-800/50 rounded-full overflow-hidden border border-dark-600">
             <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-neon-cyan to-neon-purple transition-all duration-300"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-red-300">{error}</p>
+          <div className="mb-8 p-6 bg-red-500/20 border border-red-500/50 rounded-xl flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-red-300 text-lg">{error}</p>
           </div>
         )}
 
         {/* Current Question */}
-        <div className="bg-gray-800/40 backdrop-blur border border-gray-700/50 p-8 rounded-2xl mb-8 shadow-lg shadow-cyan-500/10">
+        <div className="card-glass p-10 rounded-2xl mb-10 border border-neon-cyan/20">
           {/* Question Header */}
-          <div className="flex items-start gap-4 mb-6">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center text-gray-900 font-bold flex-shrink-0">
+          <div className="flex items-start gap-4 mb-8">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-bold flex-shrink-0 text-lg">
               {currentQuestion + 1}
             </div>
             <div className="flex-1">
-              <p className="text-gray-400 text-sm mb-1">Question {currentQuestion + 1} of {interview.questions.length}</p>
-              <h3 className="text-2xl font-bold text-white">{question.text || question.questionText}</h3>
+              <p className="text-gray-400 text-sm mb-2 font-semibold">Question {currentQuestion + 1} of {interview.questions.length}</p>
+              <h3 className="text-3xl font-bold text-gray-100">{question.text || question.questionText}</h3>
             </div>
           </div>
 
           {/* Answer Input */}
           {!feedback[currentQuestion] ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <textarea
                 value={answers[currentQuestion] || ''}
                 onChange={(e) => handleAnswerChange(currentQuestion, e.target.value)}
                 placeholder="Type your answer here... (Think clearly and provide a detailed response)"
-                className="w-full p-4 bg-gray-700/50 border border-gray-600/30 rounded-lg focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition text-white placeholder-gray-500 resize-none"
+                className="input-modern w-full h-48 resize-none"
                 rows="6"
               />
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">
+                <span className="text-sm text-gray-400 font-medium">
                   {answers[currentQuestion]?.length || 0} characters
                 </span>
                 <button
                   onClick={() => handleSubmitAnswer(currentQuestion)}
                   disabled={submitting || !answers[currentQuestion]?.trim()}
-                  className={`px-8 py-3 rounded-lg font-semibold transition transform hover:scale-105 flex items-center gap-2 ${
+                  className={`font-bold transition transform flex items-center gap-2 ${
                     submitting
-                      ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-cyan-500 to-teal-500 text-gray-900 hover:shadow-lg hover:shadow-cyan-500/50'
+                      ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed px-6 py-3 rounded-lg'
+                      : 'btn-primary px-8 py-3 hover:scale-105'
                   }`}
                 >
                   {submitting ? (
                     <>
-                      <Loader className="w-4 h-4 animate-spin" />
+                      <Loader className="w-5 h-5 animate-spin" />
                       Evaluating...
                     </>
                   ) : (
                     <>
-                      <Mic className="w-4 h-4" />
+                      <Mic className="w-5 h-5" />
                       Submit Answer
                     </>
                   )}
@@ -200,18 +202,18 @@ export default function InterviewInterface() {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+            <div className="space-y-6">
+              <div className="p-6 bg-neon-green/10 border border-neon-green/50 rounded-xl flex items-start gap-4">
+                <CheckCircle className="w-6 h-6 text-neon-green flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-green-400">Great answer!</p>
-                  <p className="text-green-300 text-sm mt-2 leading-relaxed">{feedback[currentQuestion]?.feedback || feedback[currentQuestion]}</p>
+                  <p className="font-bold text-neon-green text-lg mb-2">Great answer!</p>
+                  <p className="text-gray-300 text-base leading-relaxed">{feedback[currentQuestion]?.feedback || feedback[currentQuestion]}</p>
                 </div>
               </div>
               {currentQuestion < interview.questions.length - 1 && (
                 <button
                   onClick={() => setCurrentQuestion(currentQuestion + 1)}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-teal-500 text-gray-900 rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition"
+                  className="w-full btn-primary py-3 font-bold text-lg"
                 >
                   Next Question →
                 </button>
@@ -221,19 +223,19 @@ export default function InterviewInterface() {
         </div>
 
         {/* Question Navigator */}
-        <div className="bg-gray-800/40 backdrop-blur border border-gray-700/50 p-6 rounded-2xl mb-8">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wide">Progress ({answered}/{interview.questions.length})</h3>
+        <div className="card-glass p-8 rounded-2xl mb-10 border border-neon-cyan/20">
+          <h3 className="text-sm font-bold text-neon-cyan mb-6 uppercase tracking-wider">Progress ({answered}/{interview.questions.length})</h3>
           <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
             {interview.questions.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrentQuestion(i)}
-                className={`aspect-square rounded-lg font-semibold text-sm transition ${
+                className={`aspect-square rounded-lg font-bold text-sm transition transform hover:scale-110 ${
                   currentQuestion === i
-                    ? 'bg-gradient-to-br from-cyan-500 to-teal-500 text-gray-900 ring-2 ring-cyan-400'
+                    ? 'bg-gradient-to-br from-neon-cyan to-neon-purple text-dark-950 ring-2 ring-neon-cyan/50'
                     : feedback[i]
-                    ? 'bg-green-500/30 text-green-400 border border-green-500/50'
-                    : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'
+                    ? 'bg-neon-green/20 text-neon-green border border-neon-green/50'
+                    : 'bg-dark-800/50 text-gray-400 border border-dark-600 hover:border-neon-cyan/30'
                 }`}
               >
                 {i + 1}
@@ -244,10 +246,10 @@ export default function InterviewInterface() {
 
         {/* Finish Button */}
         {answered === interview.questions.length && (
-          <div className="text-center">
+          <div className="text-center pt-8">
             <button
               onClick={() => navigate(`/interview/${interviewId}/feedback`)}
-              className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-gray-900 rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/50 transition transform hover:scale-105"
+              className="px-10 py-4 bg-gradient-to-r from-neon-green to-neon-cyan text-dark-950 rounded-lg font-bold text-lg shadow-lg shadow-neon-green/50 hover:shadow-neon-green/70 transition transform hover:scale-105"
             >
               Complete Interview & View Results
             </button>

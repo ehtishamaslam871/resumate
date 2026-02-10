@@ -308,8 +308,14 @@ export const applicationAPI = {
    * Get user's applications
    */
   getUserApplications: () => {
-    return apiCall('/applications/my-applications', {
+    return apiCall('/applications', {
       method: 'GET',
+    })
+  },
+
+  deleteApplication: (applicationId) => {
+    return apiCall(`/applications/${applicationId}`, {
+      method: 'DELETE',
     })
   },
 
@@ -498,6 +504,34 @@ export const interviewAPI = {
   },
 }
 
+// ==================== NOTIFICATION ENDPOINTS ====================
+export const notificationAPI = {
+  getNotifications: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiCall(`/notifications${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    })
+  },
+
+  markAsRead: (notificationId) => {
+    return apiCall(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    })
+  },
+
+  markAllAsRead: () => {
+    return apiCall('/notifications/markall/read', {
+      method: 'PUT',
+    })
+  },
+
+  deleteNotification: (notificationId) => {
+    return apiCall(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    })
+  },
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 export const setAuthToken = (token, user) => {
   if (token) {
@@ -527,12 +561,14 @@ export default {
   application: applicationAPI,
   interview: interviewAPI,
   matching: matchingAPI,
+  notification: notificationAPI,
   authAPI,
   resumeAPI,
   jobAPI,
   applicationAPI,
   interviewAPI,
   matchingAPI,
+  notificationAPI,
   setAuthToken,
   clearAuth,
   isAuthenticated,

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function JobDetails() {
   const { title } = useParams();
@@ -153,86 +154,163 @@ export default function JobDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-dark-950 text-gray-100">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-6 py-24">
-        <div className="bg-gray-800 p-6 rounded-2xl">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <h1 className="text-2xl font-bold text-cyan-300">{job.title}</h1>
-              <p className="text-gray-400 mt-1">{job.company}</p>
-              <div className="mt-3">
-                    <div className="flex items-center gap-3">
-                      <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm font-medium">
-                        {job.match}% Match
-                      </span>
-                      {job.dueDate && (
-                        <div className="text-sm text-gray-400">
-                          Apply by: <span className="font-medium text-gray-200">{new Date(job.dueDate).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-              </div>
-            </div>
+      {/* Animated background */}
+      <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
+      <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
 
-            <div className="text-right">
-              <button onClick={() => navigate(-1)} className="px-4 py-2 bg-gray-700 rounded-lg text-sm hover:bg-gray-700/80">Back</button>
-            </div>
+      <main className="max-w-5xl mx-auto px-6 py-20">
+        {/* Header with Back Button */}
+        <div className="flex items-center justify-between mb-8">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="flex items-center gap-2 text-neon-cyan hover:text-neon-blue transition font-semibold"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back
+          </button>
+        </div>
+
+        {/* Job Header Card */}
+        <div className="card-glass p-8 mb-8">
+          <h1 className="text-4xl font-bold text-gray-100 mb-2">{job.title}</h1>
+          <p className="text-gray-400 text-lg mb-6">{job.company}</p>
+          
+          <div className="flex items-center gap-4 flex-wrap">
+            {job.match && (
+              <div className="badge-primary">
+                {job.match}% Match
+              </div>
+            )}
+            {job.dueDate && (
+              <div className="text-sm text-gray-400">
+                Apply by: <span className="font-semibold text-gray-100">{new Date(job.dueDate).toLocaleDateString()}</span>
+              </div>
+            )}
           </div>
+        </div>
 
-          <div className="mt-6 grid md:grid-cols-2 gap-6">
-            <div className="bg-gray-700 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-cyan-300">Role Overview</h3>
-              <p className="text-gray-300 mt-2">This role is a great match based on your resume analysis. Below are the core skills typically required.</p>
+        {/* Content Grid */}
+        <div className="grid md:grid-cols-3 gap-8">
+          {/* Left Column - Role Overview & Recommendations */}
+          <div className="md:col-span-2 space-y-8">
+            {/* Skills Section */}
+            <div className="card-glass p-8">
+              <h3 className="text-2xl font-bold text-gray-100 mb-4">Required Skills</h3>
+              <p className="text-gray-400 mb-6">Below are the core skills typically required for this role.</p>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {requiredSkills.map((s) => (
-                  <span key={s} className={`px-3 py-1 rounded-full text-sm ${matched.includes(s) ? 'bg-cyan-500 text-gray-900' : 'bg-gray-600 text-gray-200'}`}>
-                    {s}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <h4 className="text-sm text-gray-400">Matched Skills</h4>
-                <div className="mt-2">
-                  {matched.length ? (
-                    matched.map((s) => (
-                      <span key={s} className="inline-block bg-cyan-500 text-gray-900 px-3 py-1 rounded-full text-sm mr-2 mb-2">{s}</span>
-                    ))
-                  ) : (
-                    <p className="text-gray-400 text-sm">None of the core skills are present. Consider adding projects or experience that highlight these skills.</p>
-                  )}
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-sm uppercase tracking-wider text-gray-400 font-semibold mb-3">All Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {requiredSkills.map((s) => (
+                      <span 
+                        key={s} 
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                          matched.includes(s) 
+                            ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50' 
+                            : 'bg-dark-700/50 text-gray-400 border border-dark-600'
+                        }`}
+                      >
+                        {matched.includes(s) && <CheckCircle className="w-3 h-3 inline mr-1" />}
+                        {s}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="bg-gray-700 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-cyan-300">How to Improve Your Match</h3>
-              <ul className="mt-3 list-disc list-inside text-gray-300">
-                <li>Highlight relevant projects using these technologies.</li>
-                <li>Add quantifiable results (e.g., "reduced load time by 30% ").</li>
-                <li>Include links to GitHub or live demos.</li>
-              </ul>
-
-              <div className="mt-6">
-                {!applied ? (
-                  <button onClick={handleApply} className="w-full py-3 bg-cyan-500 text-gray-900 rounded-lg font-semibold hover:bg-cyan-600 transition">Apply for this Job</button>
-                ) : (
-                  <div className="p-4 rounded-lg text-center">
-                    <div className={`p-3 rounded-md ${applicationStatus === 'Approved' ? 'bg-green-600/20 text-green-300' : applicationStatus === 'Rejected' ? 'bg-red-600/20 text-red-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
-                      <div className="font-semibold">Application status: {applicationStatus || 'Pending'}</div>
-                      {applicationDate && <div className="text-sm text-gray-300 mt-1">Submitted: {new Date(applicationDate).toLocaleString()}</div>}
-                    </div>
-
-                    <div className="mt-3 flex gap-2 justify-center">
-                      <button onClick={handleCancel} className="px-4 py-2 bg-red-700 rounded-lg text-sm hover:bg-red-600">Cancel Application</button>
-                      <button onClick={() => navigate('/profile')} className="px-4 py-2 bg-cyan-500 text-gray-900 rounded-lg text-sm hover:bg-cyan-600">View Profile</button>
+                {matched.length > 0 && (
+                  <div>
+                    <h4 className="text-sm uppercase tracking-wider text-neon-cyan font-semibold mb-3">
+                      ✓ Your Matched Skills ({matched.length}/{requiredSkills.length})
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {matched.map((s) => (
+                        <span key={s} className="px-3 py-1.5 bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 rounded-lg text-sm font-semibold flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" />
+                          {s}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Recommendations */}
+            <div className="card-glass p-8 border border-neon-cyan/20">
+              <h3 className="text-2xl font-bold text-gray-100 mb-4 flex items-center gap-2">
+                <AlertCircle className="w-6 h-6 text-neon-purple" />
+                How to Improve Your Match
+              </h3>
+              <ul className="space-y-3 text-gray-400">
+                <li className="flex gap-3">
+                  <span className="text-neon-purple mt-1">•</span>
+                  <span>Highlight relevant projects using these technologies.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-neon-blue mt-1">•</span>
+                  <span>Add quantifiable results (e.g., "reduced load time by 30%").</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-neon-pink mt-1">•</span>
+                  <span>Include links to GitHub repositories or live demos.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Right Column - Application Status */}
+          <div className="md:col-span-1">
+            <div className="card-glass-hover p-8 sticky top-24">
+              {!applied ? (
+                <div>
+                  <button 
+                    onClick={handleApply} 
+                    className="btn-primary w-full mb-4"
+                  >
+                    Apply for this Job
+                  </button>
+                  <p className="text-sm text-gray-400 text-center">
+                    You'll be asked to sign in if needed
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className={`p-4 rounded-lg border ${
+                    applicationStatus === 'Approved' 
+                      ? 'bg-green-500/10 border-green-500/30 text-green-400' 
+                      : applicationStatus === 'Rejected' 
+                      ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                      : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                  }`}>
+                    <div className="font-bold text-sm mb-1">Application Status</div>
+                    <div className="text-lg font-bold">{applicationStatus || 'Pending'}</div>
+                    {applicationDate && (
+                      <div className="text-xs mt-2 opacity-75">
+                        Submitted: {new Date(applicationDate).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <button 
+                      onClick={handleCancel} 
+                      className="btn-secondary w-full text-sm"
+                    >
+                      Cancel Application
+                    </button>
+                    <button 
+                      onClick={() => navigate('/profile')} 
+                      className="btn-primary w-full text-sm"
+                    >
+                      View Profile
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -208,8 +208,8 @@ export default function AuthModal() {
         // Save token and user
         setAuthToken(response.token, response.user)
 
-        // Redirect based on role
-        const userRole = response.user.role
+        // Redirect based on role (case-insensitive)
+        const userRole = (response.user.role || '').toLowerCase()
         if (userRole === 'recruiter') navigate('/recruiter')
         else if (userRole === 'admin') navigate('/admin')
         else navigate('/upload')
@@ -223,12 +223,14 @@ export default function AuthModal() {
           phone: `${selectedCountry.code}${phone}`,
         })
 
-        // Show success message
-        setSuccess(`Account created as ${role}. Please sign in.`)
-        setPassword('')
-        setConfirmPassword('')
-        setPhone('')
-        setIsLogin(true)
+        // Auto-login user and redirect to dashboard
+        setAuthToken(response.token, response.user)
+        
+        // Redirect based on role (case-insensitive)
+        const userRole = (response.user.role || '').toLowerCase()
+        if (userRole === 'recruiter') navigate('/recruiter')
+        else if (userRole === 'admin') navigate('/admin')
+        else navigate('/upload')
       }
     } catch (err) {
       setError(err.message || 'An error occurred. Please try again.')
@@ -238,67 +240,54 @@ export default function AuthModal() {
   // forgot-password flow moved to `ForgotPasswordModal` component
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-dark-950">
       <Navbar />
 
-      <div className="flex items-center justify-center px-6 py-20">
-        <div className="w-full max-w-md">
+      <div className="flex items-center justify-center px-6 py-20 relative overflow-hidden">
+        {/* Animated background blobs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-neon-cyan/20 to-neon-purple/20 rounded-full blur-3xl animate-pulse-slow"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-neon-purple/20 to-neon-pink/20 rounded-full blur-3xl animate-pulse-slow" style={{animationDelay: '1s'}}></div>
+        </div>
+        
+        <div className="w-full max-w-md relative z-10">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-8 animate-fade-in">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 
-              flex items-center justify-center text-gray-900 font-extrabold">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple 
+              flex items-center justify-center text-dark-950 font-extrabold group hover:shadow-lg hover:shadow-neon-cyan/50 transition-all">
                 RM
               </div>
-              <span className="text-cyan-300 text-lg font-bold">ResuMate</span>
+              <span className="text-neon-cyan text-lg font-bold">ResuMate</span>
             </div>
-            <h1 className="text-3xl font-bold mb-2">
+            <h1 className="text-4xl font-display font-bold mb-2 text-gray-100">
               {isLogin ? 'Welcome Back' : 'Join ResuMate'}
             </h1>
-            <p className="text-gray-400">
+            <p className="text-gray-400 text-lg">
               {isLogin ? 'Sign in to your account' : 'Create your account to get started'}
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="bg-gray-800 p-8 rounded-lg shadow-lg">
+          <form onSubmit={handleSubmit} className="card-glass p-8">
             {/* Role Selection */}
             <div className="mb-6">
-              <label className="block text-gray-300 mb-3">I am a:</label>
+              <label className="block text-gray-300 mb-3 font-semibold">I am a:</label>
               <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRole('Job Seeker')}
-                  className={`py-2 rounded-lg transition ${
-                    role === 'Job Seeker' 
-                      ? 'bg-cyan-500 text-gray-900 font-medium' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Job Seeker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('recruiter')}
-                  className={`py-2 rounded-lg transition ${
-                    role === 'recruiter' 
-                      ? 'bg-cyan-500 text-gray-900 font-medium' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Recruiter
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('admin')}
-                  className={`py-2 rounded-lg transition ${
-                    role === 'admin' 
-                      ? 'bg-cyan-500 text-gray-900 font-medium' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  Admin
-                </button>
+                {['Job Seeker', 'recruiter', 'admin'].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRole(r)}
+                    className={`py-2 rounded-lg transition-all duration-300 font-medium ${
+                      role === r 
+                        ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-dark-950 shadow-lg shadow-neon-cyan/50' 
+                        : 'bg-dark-800 text-gray-300 hover:bg-dark-700 border border-dark-700/50'
+                    }`}
+                  >
+                    {r === 'Job Seeker' ? 'Job Seeker' : r === 'recruiter' ? 'Recruiter' : 'Admin'}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -310,7 +299,7 @@ export default function AuthModal() {
                   placeholder="Full Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
+                  className="input-modern w-full"
                   required
                 />
               </div>
@@ -319,14 +308,14 @@ export default function AuthModal() {
             {/* Phone (only for sign up) */}
             {!isLogin && (
               <div className="mb-4">
-                <label className="block text-gray-300 text-sm mb-2">Phone Number</label>
+                <label className="block text-gray-300 text-sm mb-2 font-semibold">Phone Number</label>
                 <div className="flex gap-2">
                   {/* Country Code Dropdown */}
                   <div className="relative w-24">
                     <button
                       type="button"
                       onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                      className="w-full p-3 bg-gray-700 rounded-lg flex items-center justify-between text-white hover:bg-gray-600 transition"
+                      className="input-modern w-full p-3 flex items-center justify-between"
                     >
                       <span className="text-lg">{selectedCountry.flag}</span>
                       <ChevronDown size={16} className="text-gray-400" />
@@ -334,7 +323,7 @@ export default function AuthModal() {
                     
                     {/* Dropdown Menu */}
                     {showCountryDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 card-glass border border-dark-700/50 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
                         {COUNTRIES.map((country) => (
                           <button
                             key={country.shortCode}
@@ -343,7 +332,7 @@ export default function AuthModal() {
                               setSelectedCountry(country)
                               setShowCountryDropdown(false)
                             }}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-600 transition flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-dark-700/50 transition flex items-center gap-2"
                           >
                             <span className="text-lg">{country.flag}</span>
                             <span className="text-xs text-gray-400">{country.code}</span>
@@ -360,7 +349,7 @@ export default function AuthModal() {
                       placeholder="Enter your number"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                      className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400 pl-12"
+                      className="input-modern w-full pl-12"
                       required
                     />
                     <span className="absolute left-3 top-3 text-gray-400 text-sm font-medium">
@@ -379,7 +368,7 @@ export default function AuthModal() {
                 placeholder="Email Address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
+                className="input-modern w-full"
                 required
               />
             </div>
@@ -391,13 +380,13 @@ export default function AuthModal() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400 pr-10"
+                className="input-modern w-full pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+                className="absolute right-3 top-3 text-gray-400 hover:text-neon-cyan transition"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -411,13 +400,13 @@ export default function AuthModal() {
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400 pr-10"
+                  className="input-modern w-full pr-10"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+                  className="absolute right-3 top-3 text-gray-400 hover:text-neon-cyan transition"
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -426,7 +415,7 @@ export default function AuthModal() {
 
             {/* Password Strength Indicator (only for sign up) */}
             {!isLogin && password && (
-              <div className="mb-6 p-3 bg-gray-700 rounded-lg text-sm">
+              <div className="mb-6 p-4 card-glass rounded-lg text-sm">
                 <p className="text-gray-300 mb-2 font-medium">Password requirements:</p>
                 <ul className="space-y-1 text-xs">
                   <li className={password.length >= 8 ? 'text-green-400' : 'text-gray-400'}>
@@ -450,14 +439,16 @@ export default function AuthModal() {
 
             {/* Messages */}
             {error && (
-              <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm">
-                {error}
+              <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm flex items-start gap-3">
+                <span className="text-lg mt-0.5">⚠️</span>
+                <div>{error}</div>
               </div>
             )}
 
             {success && (
-              <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg text-green-300 text-sm">
-                {success}
+              <div className="mb-4 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-300 text-sm flex items-start gap-3">
+                <span className="text-lg mt-0.5">✅</span>
+                <div>{success}</div>
               </div>
             )}
 
@@ -474,7 +465,7 @@ export default function AuthModal() {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full bg-cyan-500 text-gray-900 py-3 rounded-lg font-semibold hover:bg-cyan-600 transition mb-4"
+                  className="btn-primary w-full mb-4"
                 >
                   {isLogin ? 'Sign In' : 'Create Account'}
                 </button>
@@ -489,7 +480,7 @@ export default function AuthModal() {
                           setError('')
                           setSuccess('')
                         }}
-                        className="w-full py-3 border-2 border-cyan-500 text-cyan-300 rounded-lg font-semibold hover:bg-cyan-500 hover:text-gray-900 transition"
+                        className="btn-secondary w-full"
                       >
                         Create Account
                       </button>
@@ -501,7 +492,7 @@ export default function AuthModal() {
                             setError('')
                             setSuccess('')
                           }}
-                          className="text-sm text-gray-400 hover:text-gray-200"
+                          className="text-sm text-gray-400 hover:text-neon-cyan transition"
                         >
                           Or continue signing in
                         </button>
@@ -509,7 +500,7 @@ export default function AuthModal() {
                         <button
                           type="button"
                           onClick={() => setForgotMode(true)}
-                          className="text-sm text-cyan-300 hover:text-cyan-200"
+                          className="text-sm text-neon-cyan hover:text-neon-cyan/80 transition"
                         >
                           Forgot password?
                         </button>
@@ -523,7 +514,7 @@ export default function AuthModal() {
                         setError('')
                         setSuccess('')
                       }}
-                      className="text-cyan-400 hover:text-cyan-300 text-sm"
+                      className="text-neon-cyan hover:text-neon-cyan/80 text-sm transition"
                     >
                       Already have an account? Sign in
                     </button>
