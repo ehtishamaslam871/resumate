@@ -46,6 +46,20 @@ const applicationSchema = new mongoose.Schema({
   recruiterFeedback: String,
   recruiterRating: { type: Number, min: 1, max: 5 },
   
+  // AI Scoring
+  aiScore: { type: Number, default: null },
+  aiReasoning: String,
+  aiStrengths: [String],
+  aiGaps: [String],
+  aiRecommendation: String,
+  matchBreakdown: {
+    skills: Number,
+    experience: Number,
+    location: Number
+  },
+  matchedSkills: [String],
+  missingSkills: [String],
+  
   // Interview
   interviewScheduled: Date,
   interviewStatus: {

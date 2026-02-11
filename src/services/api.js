@@ -532,6 +532,86 @@ export const notificationAPI = {
   },
 }
 
+// ==================== ADMIN ENDPOINTS ====================
+export const adminAPI = {
+  /**
+   * Get dashboard stats (users, jobs, applications, resumes, interviews)
+   */
+  getDashboardStats: () => {
+    return apiCall('/admin/dashboard/stats', { method: 'GET' })
+  },
+
+  /**
+   * Get all users with pagination and optional role filter
+   * @param {Object} params - { page, limit, role, sortBy }
+   */
+  getUsers: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiCall(`/admin/users${query ? '?' + query : ''}`, { method: 'GET' })
+  },
+
+  /**
+   * Toggle user active/suspended status
+   * @param {string} userId - User ID
+   */
+  toggleUserStatus: (userId) => {
+    return apiCall(`/admin/users/${userId}/toggle-status`, { method: 'PATCH' })
+  },
+
+  /**
+   * Get user activity report
+   * @param {string} userId - User ID
+   */
+  getUserActivity: (userId) => {
+    return apiCall(`/admin/users/${userId}/activity`, { method: 'GET' })
+  },
+
+  /**
+   * Reset user password (admin only)
+   * @param {string} userId - User ID
+   * @param {string} newPassword - New password
+   */
+  resetUserPassword: (userId, newPassword) => {
+    return apiCall(`/admin/users/${userId}/reset-password`, {
+      method: 'PATCH',
+      body: JSON.stringify({ newPassword }),
+    })
+  },
+
+  /**
+   * Change user role (admin only)
+   * @param {string} userId - User ID
+   * @param {string} role - New role (job_seeker, recruiter, admin)
+   */
+  changeUserRole: (userId, role) => {
+    return apiCall(`/admin/users/${userId}/change-role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    })
+  },
+
+  /**
+   * Get application analytics
+   */
+  getApplicationAnalytics: () => {
+    return apiCall('/admin/analytics/applications', { method: 'GET' })
+  },
+
+  /**
+   * Get job market analytics
+   */
+  getJobMarketAnalytics: () => {
+    return apiCall('/admin/analytics/job-market', { method: 'GET' })
+  },
+
+  /**
+   * Get system health
+   */
+  getSystemHealth: () => {
+    return apiCall('/admin/dashboard/health', { method: 'GET' })
+  },
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 export const setAuthToken = (token, user) => {
   if (token) {
@@ -562,6 +642,7 @@ export default {
   interview: interviewAPI,
   matching: matchingAPI,
   notification: notificationAPI,
+  admin: adminAPI,
   authAPI,
   resumeAPI,
   jobAPI,
@@ -569,6 +650,7 @@ export default {
   interviewAPI,
   matchingAPI,
   notificationAPI,
+  adminAPI,
   setAuthToken,
   clearAuth,
   isAuthenticated,

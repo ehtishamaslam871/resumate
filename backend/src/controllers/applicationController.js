@@ -3,7 +3,7 @@ const Job = require('../models/Job');
 const Resume = require('../models/Resume');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { getRecommendedJobs, aiShortlistCandidates } = require('../services/matchingService');
+const { getRecommendedJobs, aiShortlistCandidates, calculateMatchScore } = require('../services/matchingService');
 
 // ==================== CREATE APPLICATION ====================
 exports.createApplication = async (req, res) => {
@@ -71,9 +71,46 @@ exports.createApplication = async (req, res) => {
       relatedApplication: application._id,
       relatedJob: jobId,
       relatedUser: req.user.id,
-      actionUrl: `/recruiter/applications/${application._id}`,
+      actionUrl: '/recruiter',
       actionLabel: 'View Application'
     });
+
+    // Auto-score: Calculate match score between resume and job
+    try {
+      if (resume) {
+        const matchResult = calculateMatchScore(resume, job);
+        application.aiScore = matchResult.totalScore;
+        application.matchBreakdown = matchResult.breakdown;
+        application.matchedSkills = matchResult.matchedSkills;
+        application.missingSkills = matchResult.missingSkills;
+
+        // Auto-shortlist if score >= 80
+        if (matchResult.totalScore >= 80) {
+          application.status = 'shortlisted';
+          application.aiRecommendation = 'Strong fit — auto-shortlisted';
+
+          // Notify recruiter about high-quality candidate
+          await Notification.create({
+            user: job.recruiter,
+            userId: job.recruiterId,
+            type: 'application_received',
+            title: '⭐ Top Candidate Auto-Shortlisted',
+            message: `${user.name} scored ${matchResult.totalScore}% match for ${job.title} and has been auto-shortlisted`,
+            relatedApplication: application._id,
+            relatedJob: jobId,
+            relatedUser: req.user.id,
+            actionUrl: '/recruiter',
+            actionLabel: 'Review Candidate'
+          });
+        } else {
+          application.aiRecommendation = matchResult.totalScore >= 60 ? 'Good fit' : 'Average fit';
+        }
+
+        await application.save();
+      }
+    } catch (scoreErr) {
+      console.error('Auto-scoring failed (non-blocking):', scoreErr.message);
+    }
 
     res.status(201).json({
       message: 'Application submitted successfully',
@@ -178,7 +215,7 @@ exports.updateApplicationStatus = async (req, res) => {
       message: statusMessages[status] || `Application status: ${status}`,
       relatedApplication: applicationId,
       relatedJob: application.job,
-      actionUrl: `/jobs/${application.job}/application/${applicationId}`,
+      actionUrl: '/profile',
       actionLabel: 'View Details'
     });
 
@@ -323,8 +360,44 @@ exports.aiShortlistApplications = async (req, res) => {
     // Update applications with AI scores
     for (const candidate of shortlistedCandidates) {
       await Application.findByIdAndUpdate(candidate._id, {
-        aiShortlistScore: candidate.aiScore,
+        aiScore: candidate.aiScore,
+        aiReasoning: candidate.aiReasoning,
+        aiStrengths: candidate.aiStrengths || [],
+        aiGaps: candidate.aiGaps || [],
+        aiRecommendation: candidate.recommendation || 'To be reviewed',
         status: candidate.isShortlisted ? 'shortlisted' : 'reviewing'
+      });
+
+      // Notify shortlisted candidates
+      if (candidate.isShortlisted) {
+        try {
+          await Notification.create({
+            user: candidate.applicant?._id || candidate.applicant,
+            type: 'application_status_updated',
+            title: 'You\'ve Been Shortlisted!',
+            message: `Your application for ${job.title} has been shortlisted with a ${candidate.aiScore}% match score`,
+            relatedApplication: candidate._id,
+            relatedJob: jobId,
+            actionUrl: '/profile',
+            actionLabel: 'View Application'
+          });
+        } catch (notifErr) {
+          console.error('Failed to send shortlist notification:', notifErr.message);
+        }
+      }
+    }
+
+    // Notify recruiter with summary
+    const shortlistedCount = shortlistedCandidates.filter(c => c.isShortlisted).length;
+    if (shortlistedCount > 0) {
+      await Notification.create({
+        user: req.user.id,
+        type: 'system_alert',
+        title: 'AI Shortlisting Complete',
+        message: `${shortlistedCount} candidates shortlisted for ${job.title} out of ${applications.length} applicants`,
+        relatedJob: jobId,
+        actionUrl: '/recruiter',
+        actionLabel: 'View Results'
       });
     }
 

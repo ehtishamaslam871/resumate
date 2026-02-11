@@ -353,29 +353,61 @@ export default function Profile() {
           ) : (
             <div className="space-y-3">
               {applications.map((a, idx) => (
-                <div key={a._id || idx} className="p-4 card-glass border border-dark-700/50 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-100">{a.jobTitle || a.job?.title || 'Untitled Job'}</div>
-                    <div className="text-sm text-gray-400">{a.companyName || a.job?.company || '—'} • {a.appliedDate ? new Date(a.appliedDate).toLocaleDateString() : a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      a.status === 'accepted' 
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
-                        : a.status === 'rejected' 
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : a.status === 'shortlisted'
-                        ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50'
-                        : a.status === 'reviewing'
-                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                        : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
-                    }`}>
-                      {a.status === 'applied' ? 'Pending' : a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'Pending'}
+                <div key={a._id || idx} className="p-4 card-glass border border-dark-700/50 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {a.aiScore != null && (
+                        <div className={`w-10 h-10 rounded-full border-2 flex flex-col items-center justify-center flex-shrink-0 ${
+                          a.aiScore >= 80 ? 'border-green-400 bg-green-500/10' :
+                          a.aiScore >= 60 ? 'border-cyan-400 bg-cyan-500/10' :
+                          a.aiScore >= 40 ? 'border-yellow-400 bg-yellow-500/10' :
+                          'border-red-400 bg-red-500/10'
+                        }`}>
+                          <span className={`text-xs font-extrabold ${
+                            a.aiScore >= 80 ? 'text-green-400' :
+                            a.aiScore >= 60 ? 'text-cyan-400' :
+                            a.aiScore >= 40 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>{a.aiScore}%</span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-semibold text-gray-100">{a.jobTitle || a.job?.title || 'Untitled Job'}</div>
+                        <div className="text-sm text-gray-400">
+                          {a.companyName || a.job?.company || '—'} • {a.appliedDate ? new Date(a.appliedDate).toLocaleDateString() : a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}
+                          {a.aiRecommendation && <span className="ml-2 text-purple-400 text-xs">• {a.aiRecommendation}</span>}
+                        </div>
+                      </div>
                     </div>
-                    {a.status === 'applied' && (
-                      <button onClick={() => cancelApplication(a)} className="px-3 py-1 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm hover:bg-red-500/30 transition">Withdraw</button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        a.status === 'accepted' 
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                          : a.status === 'rejected' 
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                          : a.status === 'shortlisted'
+                          ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50'
+                          : a.status === 'reviewing'
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                          : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                      }`}>
+                        {a.status === 'applied' ? 'Pending' : a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'Pending'}
+                      </div>
+                      {a.status === 'applied' && (
+                        <button onClick={() => cancelApplication(a)} className="px-3 py-1 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm hover:bg-red-500/30 transition">Withdraw</button>
+                      )}
+                    </div>
                   </div>
+                  {(a.matchedSkills?.length > 0 || a.missingSkills?.length > 0) && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {a.matchedSkills?.map((s, i) => (
+                        <span key={`m-${i}`} className="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-semibold rounded border border-green-500/20">{s}</span>
+                      ))}
+                      {a.missingSkills?.map((s, i) => (
+                        <span key={`x-${i}`} className="px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-semibold rounded border border-red-500/20">{s}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

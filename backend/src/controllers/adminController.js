@@ -358,6 +358,66 @@ exports.getSystemHealth = async (req, res) => {
   }
 };
 
+// Admin reset user password
+exports.resetUserPassword = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { userId } = req.params;
+    const { newPassword } = req.body;
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(10);
+    targetUser.password = await bcrypt.hash(newPassword, salt);
+    await targetUser.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
+
+// Admin change user role
+exports.changeUserRole = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    if (!['job_seeker', 'recruiter', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    const targetUser = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true }
+    ).select('-password');
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'Role updated successfully', user: targetUser });
+  } catch (error) {
+    console.error('Change role error:', error);
+    res.status(500).json({ error: 'Failed to change role' });
+  }
+};
+
 // Get system logs (last N entries)
 exports.getSystemLogs = async (req, res) => {
   try {

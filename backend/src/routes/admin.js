@@ -14,6 +14,8 @@ router.get('/dashboard/logs', adminController.getSystemLogs);
 // User Management
 router.get('/users', adminController.getUsers);
 router.patch('/users/:userId/toggle-status', adminController.toggleUserStatus);
+router.patch('/users/:userId/reset-password', adminController.resetUserPassword);
+router.patch('/users/:userId/change-role', adminController.changeUserRole);
 router.get('/users/:userId/activity', adminController.getUserActivity);
 
 // Analytics

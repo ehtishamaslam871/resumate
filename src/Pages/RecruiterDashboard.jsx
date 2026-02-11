@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import api from "../services/api";
-import { Plus, Edit, Trash2, Eye, Loader, AlertCircle, CheckCircle, X, Save, UserCheck, UserX, ChevronDown, ChevronUp, Mail, Phone, FileText, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Loader, AlertCircle, CheckCircle, X, Save, UserCheck, UserX, ChevronDown, ChevronUp, Mail, Phone, FileText, ExternalLink, Sparkles, TrendingUp, Star } from "lucide-react";
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
@@ -17,6 +17,8 @@ export default function RecruiterDashboard() {
   const [loadingApps, setLoadingApps] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [expandedApp, setExpandedApp] = useState(null);
+  const [shortlisting, setShortlisting] = useState(null);
+  const [showTopOnly, setShowTopOnly] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -238,6 +240,7 @@ export default function RecruiterDashboard() {
   // View all applications across all jobs
   const handleViewAllApplications = async () => {
     setSelectedJobId(null);
+    setShowTopOnly(false);
     setLoadingApps(true);
     try {
       const allApps = [];
@@ -277,6 +280,42 @@ export default function RecruiterDashboard() {
     } finally {
       setUpdatingStatus(null);
     }
+  };
+
+  // AI Shortlist - runs AI analysis on all applicants for a job
+  const handleAIShortlist = async (jobId) => {
+    setShortlisting(jobId);
+    setError(null);
+    try {
+      const response = await api.application.aiShortlistApplications(jobId, { topN: 10 });
+      const shortlisted = response.shortlistedCandidates || [];
+      setSuccess(`AI shortlisted ${shortlisted.length} candidates! Showing top matches only...`);
+      setShowTopOnly(true);
+      
+      // Refresh applications for this job
+      setTimeout(async () => {
+        await handleViewApplicants(jobId);
+        setSuccess(null);
+      }, 1500);
+    } catch (err) {
+      setError(err.message || "AI shortlisting failed. Try again later.");
+    } finally {
+      setShortlisting(null);
+    }
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'text-green-400';
+    if (score >= 60) return 'text-neon-cyan';
+    if (score >= 40) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getScoreRingColor = (score) => {
+    if (score >= 80) return 'border-green-400 bg-green-500/10';
+    if (score >= 60) return 'border-neon-cyan bg-neon-cyan/10';
+    if (score >= 40) return 'border-yellow-400 bg-yellow-500/10';
+    return 'border-red-400 bg-red-500/10';
   };
 
   const getStatusColor = (status) => {
@@ -669,6 +708,18 @@ export default function RecruiterDashboard() {
                           <Eye className="w-5 h-5" />
                         </button>
                         <button
+                          onClick={() => handleAIShortlist(job._id)}
+                          disabled={shortlisting === job._id || (job.applicantCount || 0) === 0}
+                          className="p-3 bg-dark-800/50 hover:bg-purple-500/20 border border-dark-600 hover:border-purple-500/50 rounded-lg transition text-purple-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="AI Shortlist candidates"
+                        >
+                          {shortlisting === job._id ? (
+                            <Loader className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-5 h-5" />
+                          )}
+                        </button>
+                        <button
                           onClick={() => handleEditJob(job)}
                           className="p-3 bg-dark-800/50 hover:bg-neon-blue/20 border border-dark-600 hover:border-neon-blue/50 rounded-lg transition text-neon-blue"
                         >
@@ -735,174 +786,306 @@ export default function RecruiterDashboard() {
                 <p className="text-gray-500 mt-2">Applications will appear here when job seekers apply to your postings.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {applications.map((app) => (
-                  <div
-                    key={app._id}
-                    className="card-glass rounded-2xl border border-neon-cyan/20 overflow-hidden"
-                  >
-                    {/* Main row */}
-                    <div className="p-6 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        {/* Avatar */}
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-extrabold text-sm flex-shrink-0">
-                          {(app.applicantName || 'U').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-lg font-bold text-gray-100 truncate">
-                            {app.applicantName || 'Unknown Applicant'}
-                          </h3>
-                          <p className="text-neon-cyan font-semibold text-sm">{app.jobTitle || 'Unknown Job'}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                            {app.applicantEmail && (
-                              <span className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" /> {app.applicantEmail}
-                              </span>
-                            )}
-                            {app.appliedDate && (
-                              <span>Applied: {new Date(app.appliedDate || app.createdAt).toLocaleDateString()}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        {/* Status badge */}
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(app.status)}`}>
-                          {getStatusLabel(app.status)}
-                        </span>
-
-                        {/* Expand/collapse */}
-                        <button
-                          onClick={() => setExpandedApp(expandedApp === app._id ? null : app._id)}
-                          className="p-2 bg-dark-800/50 hover:bg-dark-700 border border-dark-600 rounded-lg transition text-gray-400 hover:text-gray-200"
-                        >
-                          {expandedApp === app._id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
+              <>
+                {/* AI Shortlist bar */}
+                {selectedJobId && (
+                  <div className="mb-6 p-4 card-glass rounded-xl border border-purple-500/30 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                      <div>
+                        <p className="text-sm font-bold text-gray-200">AI Shortlisting</p>
+                        <p className="text-xs text-gray-400">
+                          {showTopOnly 
+                            ? `Showing ${applications.filter(a => a.aiScore != null && a.aiScore >= 80).length} top candidate${applications.filter(a => a.aiScore != null && a.aiScore >= 80).length !== 1 ? 's' : ''} (80%+ match)`
+                            : `${applications.length} applicant${applications.length !== 1 ? 's' : ''} — Candidates with 80%+ match are auto-shortlisted`
+                          }
+                        </p>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {showTopOnly && (
+                        <button
+                          onClick={() => setShowTopOnly(false)}
+                          className="px-4 py-2 bg-dark-800 border border-dark-600 text-gray-300 rounded-lg font-bold text-sm hover:bg-dark-700 transition flex items-center gap-2"
+                        >
+                          Show All
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleAIShortlist(selectedJobId)}
+                        disabled={shortlisting === selectedJobId}
+                        className="px-5 py-2 bg-gradient-to-r from-purple-500/20 to-neon-cyan/20 border border-purple-500/50 text-purple-300 rounded-lg font-bold text-sm hover:from-purple-500/30 hover:to-neon-cyan/30 transition disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {shortlisting === selectedJobId ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Run AI Shortlist
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                    {/* Expanded details */}
-                    {expandedApp === app._id && (
-                      <div className="px-6 pb-6 border-t border-dark-700/50 pt-4">
-                        <div className="grid md:grid-cols-2 gap-6">
-                          {/* Left: Applicant details */}
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Applicant Details</h4>
-                            
-                            <div className="space-y-2 text-sm">
+                {/* Sort by score, filter if showTopOnly */}
+                <div className="space-y-4">
+                  {[...applications]
+                    .sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0))
+                    .filter(app => !showTopOnly || (app.aiScore != null && app.aiScore >= 80))
+                    .map((app) => (
+                    <div
+                      key={app._id}
+                      className={`card-glass rounded-2xl overflow-hidden transition-all ${
+                        app.status === 'shortlisted' 
+                          ? 'border-2 border-neon-cyan/40 shadow-lg shadow-neon-cyan/10' 
+                          : 'border border-dark-700/50'
+                      }`}
+                    >
+                      {/* Main row */}
+                      <div className="p-5 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          {/* AI Score Ring */}
+                          {app.aiScore != null ? (
+                            <div className={`w-14 h-14 rounded-full border-2 flex flex-col items-center justify-center flex-shrink-0 ${getScoreRingColor(app.aiScore)}`}>
+                              <span className={`text-base font-extrabold leading-none ${getScoreColor(app.aiScore)}`}>{app.aiScore}</span>
+                              <span className="text-[8px] text-gray-500 uppercase font-bold">match</span>
+                            </div>
+                          ) : (
+                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-extrabold text-sm flex-shrink-0">
+                              {(app.applicantName || 'U').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                            </div>
+                          )}
+                          
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-bold text-gray-100 truncate">
+                                {app.applicantName || 'Unknown Applicant'}
+                              </h3>
+                              {app.aiScore >= 80 && (
+                                <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/15 text-green-400 rounded-full text-[10px] font-bold border border-green-500/30">
+                                  <Star className="w-3 h-3" /> Top Match
+                                </span>
+                              )}
+                              {app.aiRecommendation && (
+                                <span className="text-[10px] px-2 py-0.5 bg-purple-500/15 text-purple-400 rounded-full font-semibold border border-purple-500/20">
+                                  {app.aiRecommendation}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-neon-cyan font-semibold text-sm">{app.jobTitle || 'Unknown Job'}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
                               {app.applicantEmail && (
-                                <div className="flex items-center gap-2 text-gray-300">
-                                  <Mail className="w-4 h-4 text-neon-cyan" />
-                                  <a href={`mailto:${app.applicantEmail}`} className="hover:text-neon-cyan transition">{app.applicantEmail}</a>
-                                </div>
+                                <span className="flex items-center gap-1">
+                                  <Mail className="w-3 h-3" /> {app.applicantEmail}
+                                </span>
                               )}
-                              {app.applicantPhone && (
-                                <div className="flex items-center gap-2 text-gray-300">
-                                  <Phone className="w-4 h-4 text-neon-cyan" />
-                                  <span>{app.applicantPhone}</span>
-                                </div>
-                              )}
-                              {app.linkedin && (
-                                <div className="flex items-center gap-2 text-gray-300">
-                                  <ExternalLink className="w-4 h-4 text-neon-cyan" />
-                                  <a href={app.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-neon-cyan transition">LinkedIn Profile</a>
-                                </div>
-                              )}
-                              {app.portfolio && (
-                                <div className="flex items-center gap-2 text-gray-300">
-                                  <ExternalLink className="w-4 h-4 text-neon-cyan" />
-                                  <a href={app.portfolio} target="_blank" rel="noopener noreferrer" className="hover:text-neon-cyan transition">Portfolio</a>
-                                </div>
-                              )}
-                              {app.website && (
-                                <div className="flex items-center gap-2 text-gray-300">
-                                  <ExternalLink className="w-4 h-4 text-neon-cyan" />
-                                  <a href={app.website} target="_blank" rel="noopener noreferrer" className="hover:text-neon-cyan transition">Website</a>
-                                </div>
+                              <span>Applied: {new Date(app.appliedDate || app.createdAt).toLocaleDateString()}</span>
+                              {app.matchedSkills?.length > 0 && (
+                                <span className="text-green-400">{app.matchedSkills.length} skills matched</span>
                               )}
                             </div>
-
-                            {app.coverLetter && (
-                              <div className="mt-3">
-                                <h5 className="text-xs font-bold text-gray-400 uppercase mb-1">Cover Letter</h5>
-                                <p className="text-sm text-gray-300 bg-dark-800/50 rounded-lg p-3 border border-dark-700/50">{app.coverLetter}</p>
-                              </div>
-                            )}
-
-                            {app.resumeUrl && (
-                              <a
-                                href={app.resumeUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 rounded-lg hover:bg-neon-cyan/20 transition text-sm font-semibold mt-2"
-                              >
-                                <FileText className="w-4 h-4" />
-                                View Resume
-                              </a>
-                            )}
-                          </div>
-
-                          {/* Right: Actions */}
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Actions</h4>
-                            
-                            <div className="space-y-2">
-                              {app.status !== 'accepted' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(app._id, 'accepted')}
-                                  disabled={updatingStatus === app._id}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500/20 border border-green-500/50 text-green-400 rounded-xl hover:bg-green-500/30 transition font-bold text-sm disabled:opacity-50"
-                                >
-                                  {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-                                  Approve Application
-                                </button>
-                              )}
-                              {app.status !== 'rejected' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(app._id, 'rejected')}
-                                  disabled={updatingStatus === app._id}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/30 transition font-bold text-sm disabled:opacity-50"
-                                >
-                                  {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                                  Reject Application
-                                </button>
-                              )}
-                              {app.status !== 'shortlisted' && app.status !== 'accepted' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(app._id, 'shortlisted')}
-                                  disabled={updatingStatus === app._id}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-neon-cyan/20 border border-neon-cyan/50 text-neon-cyan rounded-xl hover:bg-neon-cyan/30 transition font-bold text-sm disabled:opacity-50"
-                                >
-                                  {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                  Shortlist
-                                </button>
-                              )}
-                              {app.status !== 'reviewing' && app.status !== 'accepted' && app.status !== 'rejected' && (
-                                <button
-                                  onClick={() => handleUpdateStatus(app._id, 'reviewing')}
-                                  disabled={updatingStatus === app._id}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500/20 border border-blue-500/50 text-blue-400 rounded-xl hover:bg-blue-500/30 transition font-bold text-sm disabled:opacity-50"
-                                >
-                                  {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-                                  Mark as Reviewing
-                                </button>
-                              )}
-                            </div>
-
-                            {app.recruiterFeedback && (
-                              <div className="mt-3">
-                                <h5 className="text-xs font-bold text-gray-400 uppercase mb-1">Recruiter Feedback</h5>
-                                <p className="text-sm text-gray-300 bg-dark-800/50 rounded-lg p-3 border border-dark-700/50">{app.recruiterFeedback}</p>
-                              </div>
-                            )}
                           </div>
                         </div>
+
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <span className={`px-4 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(app.status)}`}>
+                            {getStatusLabel(app.status)}
+                          </span>
+                          <button
+                            onClick={() => setExpandedApp(expandedApp === app._id ? null : app._id)}
+                            className="p-2 bg-dark-800/50 hover:bg-dark-700 border border-dark-600 rounded-lg transition text-gray-400 hover:text-gray-200"
+                          >
+                            {expandedApp === app._id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+
+                      {/* Expanded details */}
+                      {expandedApp === app._id && (
+                        <div className="px-5 pb-5 border-t border-dark-700/50 pt-4">
+                          {/* AI Score Breakdown */}
+                          {app.aiScore != null && (
+                            <div className="mb-5 p-4 rounded-xl bg-dark-800/30 border border-dark-700/50">
+                              <div className="flex items-center gap-2 mb-3">
+                                <TrendingUp className="w-4 h-4 text-purple-400" />
+                                <h4 className="text-sm font-bold text-gray-300">AI Match Analysis</h4>
+                              </div>
+                              <div className="grid grid-cols-3 gap-3 mb-3">
+                                <div className="text-center p-2 rounded-lg bg-dark-900/50">
+                                  <p className="text-lg font-extrabold text-neon-cyan">{app.matchBreakdown?.skills ?? '—'}%</p>
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Skills</p>
+                                </div>
+                                <div className="text-center p-2 rounded-lg bg-dark-900/50">
+                                  <p className="text-lg font-extrabold text-neon-blue">{app.matchBreakdown?.experience ?? '—'}%</p>
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Experience</p>
+                                </div>
+                                <div className="text-center p-2 rounded-lg bg-dark-900/50">
+                                  <p className="text-lg font-extrabold text-neon-purple">{app.matchBreakdown?.location ?? '—'}%</p>
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Location</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-3">
+                                {app.matchedSkills?.length > 0 && (
+                                  <div>
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Matched Skills</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {app.matchedSkills.map((skill, i) => (
+                                        <span key={i} className="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-semibold rounded border border-green-500/20">{skill}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {app.missingSkills?.length > 0 && (
+                                  <div>
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Missing Skills</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {app.missingSkills.map((skill, i) => (
+                                        <span key={i} className="px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-semibold rounded border border-red-500/20">{skill}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {app.aiReasoning && (
+                                <p className="text-xs text-gray-400 mt-3 italic">{app.aiReasoning}</p>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="grid md:grid-cols-2 gap-6">
+                            {/* Left: Applicant details */}
+                            <div className="space-y-3">
+                              <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Applicant Details</h4>
+                              
+                              <div className="space-y-2 text-sm">
+                                {app.applicantEmail && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <Mail className="w-4 h-4 text-neon-cyan" />
+                                    <a href={`mailto:${app.applicantEmail}`} className="hover:text-neon-cyan transition">{app.applicantEmail}</a>
+                                  </div>
+                                )}
+                                {app.applicantPhone && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <Phone className="w-4 h-4 text-neon-cyan" />
+                                    <span>{app.applicantPhone}</span>
+                                  </div>
+                                )}
+                                {app.linkedin && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <ExternalLink className="w-4 h-4 text-neon-cyan" />
+                                    <a href={app.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-neon-cyan transition">LinkedIn Profile</a>
+                                  </div>
+                                )}
+                                {app.portfolio && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <ExternalLink className="w-4 h-4 text-neon-cyan" />
+                                    <a href={app.portfolio} target="_blank" rel="noopener noreferrer" className="hover:text-neon-cyan transition">Portfolio</a>
+                                  </div>
+                                )}
+                              </div>
+
+                              {app.coverLetter && (
+                                <div className="mt-3">
+                                  <h5 className="text-xs font-bold text-gray-400 uppercase mb-1">Cover Letter</h5>
+                                  <p className="text-sm text-gray-300 bg-dark-800/50 rounded-lg p-3 border border-dark-700/50">{app.coverLetter}</p>
+                                </div>
+                              )}
+
+                              {app.resumeUrl && (
+                                <a
+                                  href={app.resumeUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 rounded-lg hover:bg-neon-cyan/20 transition text-sm font-semibold mt-2"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  View Resume
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Right: Actions */}
+                            <div className="space-y-3">
+                              <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Actions</h4>
+                              
+                              <div className="space-y-2">
+                                {app.status !== 'accepted' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(app._id, 'accepted')}
+                                    disabled={updatingStatus === app._id}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500/20 border border-green-500/50 text-green-400 rounded-xl hover:bg-green-500/30 transition font-bold text-sm disabled:opacity-50"
+                                  >
+                                    {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
+                                    Approve Application
+                                  </button>
+                                )}
+                                {app.status !== 'rejected' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(app._id, 'rejected')}
+                                    disabled={updatingStatus === app._id}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/30 transition font-bold text-sm disabled:opacity-50"
+                                  >
+                                    {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+                                    Reject Application
+                                  </button>
+                                )}
+                                {app.status !== 'shortlisted' && app.status !== 'accepted' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(app._id, 'shortlisted')}
+                                    disabled={updatingStatus === app._id}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-neon-cyan/20 border border-neon-cyan/50 text-neon-cyan rounded-xl hover:bg-neon-cyan/30 transition font-bold text-sm disabled:opacity-50"
+                                  >
+                                    {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                    Shortlist
+                                  </button>
+                                )}
+                                {app.status !== 'reviewing' && app.status !== 'accepted' && app.status !== 'rejected' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(app._id, 'reviewing')}
+                                    disabled={updatingStatus === app._id}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500/20 border border-blue-500/50 text-blue-400 rounded-xl hover:bg-blue-500/30 transition font-bold text-sm disabled:opacity-50"
+                                  >
+                                    {updatingStatus === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                                    Mark as Reviewing
+                                  </button>
+                                )}
+                              </div>
+
+                              {app.recruiterFeedback && (
+                                <div className="mt-3">
+                                  <h5 className="text-xs font-bold text-gray-400 uppercase mb-1">Recruiter Feedback</h5>
+                                  <p className="text-sm text-gray-300 bg-dark-800/50 rounded-lg p-3 border border-dark-700/50">{app.recruiterFeedback}</p>
+                                </div>
+                              )}
+
+                              {(app.aiStrengths?.length > 0 || app.aiGaps?.length > 0) && (
+                                <div className="mt-3 space-y-2">
+                                  {app.aiStrengths?.length > 0 && (
+                                    <div>
+                                      <h5 className="text-xs font-bold text-green-400 uppercase mb-1">AI Strengths</h5>
+                                      <ul className="text-xs text-gray-300 space-y-1">
+                                        {app.aiStrengths.map((s, i) => (
+                                          <li key={i} className="flex items-start gap-1.5"><span className="text-green-400 mt-0.5">+</span> {s}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {app.aiGaps?.length > 0 && (
+                                    <div>
+                                      <h5 className="text-xs font-bold text-red-400 uppercase mb-1">AI Gaps</h5>
+                                      <ul className="text-xs text-gray-300 space-y-1">
+                                        {app.aiGaps.map((g, i) => (
+                                          <li key={i} className="flex items-start gap-1.5"><span className="text-red-400 mt-0.5">-</span> {g}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

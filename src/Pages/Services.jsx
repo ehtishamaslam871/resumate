@@ -1,9 +1,19 @@
 import React from "react";
 import Navbar from "../components/Navbar";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Brain, Target, MessageCircle, ArrowRight } from "lucide-react";
 
 export default function Services() {
+  const navigate = useNavigate();
+
+  const handleProtectedLink = (e, path) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      e.preventDefault();
+      navigate('/auth');
+    }
+  };
+
   const projects = [
     {
       id: 1,
@@ -56,7 +66,7 @@ export default function Services() {
           {projects.map((p) => {
             const Icon = p.icon;
             return (
-              <Link to={p.link} key={p.id}>
+              <Link to={p.link} key={p.id} onClick={(e) => handleProtectedLink(e, p.link)}>
                 <article className="card-glass-hover p-8 h-full flex flex-col group border border-dark-700/50 hover:border-neon-cyan/30">
                   {/* Icon */}
                   <div className={`w-14 h-14 rounded-lg bg-gradient-to-br ${p.color} p-3 mb-6 group-hover:scale-110 transition-transform`}>
@@ -90,10 +100,10 @@ export default function Services() {
           <h2 className="text-3xl font-bold text-gray-100 mb-4">Ready to Get Started?</h2>
           <p className="text-gray-400 mb-8 max-w-2xl mx-auto">Experience the power of AI-driven resume analysis and intelligent job matching.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/upload" className="btn-primary">
+            <Link to="/upload" className="btn-primary" onClick={(e) => handleProtectedLink(e, '/upload')}>
               Analyze Your Resume
             </Link>
-            <Link to="/jobs" className="btn-secondary">
+            <Link to="/jobs" className="btn-secondary" onClick={(e) => handleProtectedLink(e, '/jobs')}>
               Browse Jobs
             </Link>
           </div>
