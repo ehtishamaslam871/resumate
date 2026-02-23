@@ -12,28 +12,32 @@ export default function Interview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [answerHistory, setAnswerHistory] = useState([]); // track submitted answers & evaluations
   const messagesEndRef = useRef(null);
 
   // Fetch interview questions on mount
   useEffect(() => {
     const fetchInterview = async () => {
       try {
-        const user = JSON.parse(localStorage.getItem('resumate_user') || 'null');
+        // Check both localStorage keys for user
+        const user = JSON.parse(
+          localStorage.getItem('resumate_user') || 
+          localStorage.getItem('user') || 
+          'null'
+        );
         if (!user) {
           navigate('/auth');
           return;
         }
 
         // Start interview session
-        const response = await api.interview.start(jobId);
+        const response = await api.interview.startInterview(jobId);
         setInterview(response.interview);
-        setAnswers(new Array(response.interview.questions?.length || 5).fill(''));
       } catch (err) {
         setError(err.message || 'Failed to load interview');
       } finally {
@@ -66,41 +70,51 @@ export default function Interview() {
     setCurrentAnswer(e.target.value);
   };
 
-  const handleNextQuestion = async () => {
-    if (currentAnswer.trim()) {
-      const newAnswers = [...answers];
-      newAnswers[currentQuestionIndex] = currentAnswer;
-      setAnswers(newAnswers);
-
-      if (currentQuestionIndex < (interview?.questions?.length || 5) - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setCurrentAnswer('');
+  // Submit current answer to backend and advance to next question
+  const handleSubmitAnswer = async () => {
+    if (!currentAnswer.trim() || !interview) return;
+    
+    setSubmitting(true);
+    try {
+      const response = await api.interview.submitAnswer(interview._id, currentAnswer.trim());
+      
+      // Track this answer + evaluation
+      setAnswerHistory(prev => [...prev, {
+        question: questions[currentQuestionIndex]?.question || questions[currentQuestionIndex],
+        answer: currentAnswer.trim(),
+        evaluation: response.evaluation
+      }]);
+      
+      if (response.interviewComplete) {
+        // Interview is done
+        setCompleted(true);
+        setFeedback({
+          score: response.averageScore,
+          finalFeedback: response.finalFeedback,
+          strengths: response.evaluation?.strengths || [],
+          areasForImprovement: response.evaluation?.improvements || []
+        });
       } else {
-        // Submit interview
-        await handleSubmitInterview(newAnswers);
+        // Move to next question
+        setCurrentQuestionIndex(response.currentQuestion);
+        setCurrentAnswer('');
       }
+    } catch (err) {
+      setError(err.message || 'Failed to submit answer');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleSubmitInterview = async (finalAnswers) => {
-    setSubmitting(true);
-    try {
-      const response = await api.interview.submit({
-        interviewId: interview._id,
-        answers: finalAnswers,
-      });
+  const handleNextQuestion = async () => {
+    if (currentAnswer.trim()) {
+      await handleSubmitAnswer();
+    }
+  };
 
-      setCompleted(true);
-      setFeedback(response.feedback);
-
-      // Redirect after 5 seconds
-      setTimeout(() => {
-        navigate('/profile');
-      }, 5000);
-    } catch (err) {
-      setError(err.message || 'Failed to submit interview');
-    } finally {
-      setSubmitting(false);
+  const handleSubmitInterview = async () => {
+    if (currentAnswer.trim()) {
+      await handleSubmitAnswer();
     }
   };
 
@@ -192,7 +206,7 @@ export default function Interview() {
                   <span className="w-12 h-12 bg-gradient-to-br from-neon-cyan to-neon-purple text-dark-950 rounded-full flex items-center justify-center font-bold text-lg">
                     {currentQuestionIndex + 1}
                   </span>
-                  <span className="text-gray-100">{currentQuestion}</span>
+                  <span className="text-gray-100">{currentQuestion?.question || currentQuestion}</span>
                 </h2>
                 <p className="text-gray-400 text-lg">
                   Take your time to provide a thoughtful answer. Speak naturally and try to be specific with examples.
@@ -216,15 +230,17 @@ export default function Interview() {
 
             {/* Navigation Buttons */}
             <div className="flex gap-4 mb-10">
-              {currentQuestionIndex > 0 && (
+              {currentQuestionIndex > 0 && answerHistory.length > 0 && (
                 <button
                   onClick={() => {
-                    setCurrentAnswer(answers[currentQuestionIndex - 1] || '');
-                    setCurrentQuestionIndex(currentQuestionIndex - 1);
+                    // Just view previous - can't re-answer since already submitted
+                    // This is informational only
                   }}
-                  className="btn-secondary px-8 py-3 font-bold"
+                  className="btn-secondary px-8 py-3 font-bold opacity-50 cursor-not-allowed"
+                  disabled
+                  title="Previous answers have already been submitted"
                 >
-                  ← Previous
+                  ← Previous (Submitted)
                 </button>
               )}
 
@@ -242,7 +258,7 @@ export default function Interview() {
                 </button>
               ) : (
                 <button
-                  onClick={() => handleSubmitInterview(answers)}
+                  onClick={() => handleSubmitInterview()}
                   disabled={!currentAnswer.trim() || submitting}
                   className={`flex-1 py-3 rounded-lg font-bold transition flex items-center justify-center gap-2 ${
                     currentAnswer.trim() && !submitting

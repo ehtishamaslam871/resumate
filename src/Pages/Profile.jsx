@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { User, Mail, Lock, Camera, Trash2, LogOut, Save, Calendar, Briefcase, Video, X, ChevronRight, Info } from 'lucide-react'
 import Navbar from '../components/Navbar'
-import api from '../services/api'
+import api, { clearAuth } from '../services/api'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -43,9 +44,9 @@ export default function Profile() {
     loadData()
   }, [user, navigate])
 
-  // Load interview invites for job seekers
+  // Load interview invites for job seekers from API
   useEffect(() => {
-    const loadInvites = () => {
+    const loadInvites = async () => {
       try {
         const role = (user?.role || '').toLowerCase()
         if (role.includes('recruit') || role.includes('admin')) {
@@ -53,22 +54,15 @@ export default function Profile() {
           return
         }
 
-        const invites = JSON.parse(localStorage.getItem('resumate_interview_invites') || '[]')
-        const myEmail = user?.email
-        // show invites for this user (applicant email matches)
-        const filtered = invites.filter(inv => inv.applicantEmail === myEmail && inv.status === 'pending')
-        setInterviewInvites(filtered)
+        const response = await api.interview.getUserInterviews()
+        const pending = (response.interviews || []).filter(inv => inv.status === 'scheduled' || inv.status === 'pending')
+        setInterviewInvites(pending)
       } catch {
         setInterviewInvites([])
       }
     }
 
-    loadInvites()
-    const onStorageInvites = (e) => {
-      if (e.key === 'resumate_interview_invites') loadInvites()
-    }
-    window.addEventListener('storage', onStorageInvites)
-    return () => window.removeEventListener('storage', onStorageInvites)
+    if (user) loadInvites()
   }, [user])
 
   const saveChanges = async () => {
@@ -137,38 +131,26 @@ export default function Profile() {
   const removeAvatar = () => setAvatar(null)
 
   const handleLogout = () => {
-    localStorage.removeItem('resumate_user')
+    clearAuth()
     setUser(null)
     navigate('/')
   }
 
   const respondToInterview = (invite, accept = true) => {
     if (accept) {
-      // navigate to interview conductor with invite data
-      navigate('/chatbot', { state: { inviteId: invite.id } })
+      // Navigate to the interview session
+      navigate(`/interview-session/${invite._id}`)
     } else {
-      // decline the interview
-      try {
-        const invitesKey = 'resumate_interview_invites'
-        const invites = JSON.parse(localStorage.getItem(invitesKey) || '[]')
-        const updated = invites.map(inv => inv.id === invite.id ? { ...inv, status: 'declined' } : inv)
-        localStorage.setItem(invitesKey, JSON.stringify(updated))
-        setInterviewInvites(prev => prev.filter(inv => inv.id !== invite.id))
-        setMessage('Interview declined')
-        setTimeout(() => setMessage(''), 2000)
-      } catch {}
+      setMessage('Interview declined')
+      setTimeout(() => setMessage(''), 2000)
     }
   }
 
   const handleDeleteAccount = () => {
     if (!confirm('Delete account? This cannot be undone.')) return
-    try {
-      const USERS_KEY = 'resumate_users'
-      const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-      const filtered = users.filter(u => u.id !== user.id)
-      localStorage.setItem(USERS_KEY, JSON.stringify(filtered))
-    } catch {}
-    localStorage.removeItem('resumate_user')
+    // Clear auth and redirect - full account deletion requires admin action
+    clearAuth()
+    setUser(null)
     navigate('/')
   }
 
@@ -187,128 +169,145 @@ export default function Profile() {
     <div className="min-h-screen bg-dark-950">
       <Navbar />
 
-      <div className="px-6 py-12 max-w-4xl mx-auto space-y-8">
-        <div className="card-glass-hover p-8">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-extrabold text-lg overflow-hidden">
-              {avatar ? (
-                <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                initials || 'U'
-              )}
+      <div className="px-6 py-12 max-w-4xl mx-auto space-y-6 animate-fade-in">
+        {/* Profile Header Card */}
+        <div className="card-glass-hover p-8 relative overflow-hidden">
+          {/* Decorative gradient line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink" />
+
+          <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+            {/* Avatar */}
+            <div className="relative group">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center
+                text-dark-950 font-extrabold text-xl overflow-hidden ring-2 ring-dark-700/50 ring-offset-2 ring-offset-dark-900
+                transition-all group-hover:ring-neon-cyan/40">
+                {avatar ? (
+                  <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  initials || 'U'
+                )}
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-dark-800 border border-dark-700/50
+                  flex items-center justify-center text-gray-400 hover:text-neon-cyan hover:border-neon-cyan/40 transition-all shadow-lg"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarPick}
+              />
             </div>
-            <div>
-              <h1 className="text-2xl font-display font-bold text-gray-100">Profile</h1>
-              <p className="text-gray-400 text-sm">Manage your account details and security settings.</p>
+
+            <div className="text-center sm:text-left flex-1">
+              <h1 className="text-2xl font-display font-bold text-gray-100">{user.name || 'Your Profile'}</h1>
+              <p className="text-gray-400 text-sm mt-0.5">{user.email}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+                <span className="badge-primary text-xs">{role}</span>
+                {avatar && (
+                  <button onClick={removeAvatar} className="text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
+                    <X className="w-3 h-3" /> Remove photo
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
+          {message && (
+            <div className={`mb-4 p-3 rounded-xl text-sm flex items-start gap-2 ${
+              message.toLowerCase().includes('success') || message.toLowerCase().includes('saved')
+                ? 'bg-green-500/15 border border-green-500/40 text-green-300'
+                : 'bg-red-500/15 border border-red-500/40 text-red-300'
+            }`}>
+              <span className="mt-0.5">{message.toLowerCase().includes('success') || message.toLowerCase().includes('saved') ? '✓' : '⚠'}</span>
+              <span>{message}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4">
-            {message && (
-              <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-300 text-sm flex items-start gap-3">
-                <span>✅</span>
-                <div>{message}</div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input
-                className="input-modern"
-                placeholder="Full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <input
-                className="input-modern"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-              <div>
-                <label className="text-sm text-gray-300 block mb-1 font-semibold">Avatar</label>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg hover:bg-dark-700 text-sm transition"
-                  >
-                    Upload
-                  </button>
-                  {avatar && (
-                    <button
-                      onClick={removeAvatar}
-                      className="px-3 py-2 bg-red-500/20 border border-red-500/50 rounded-lg hover:bg-red-500/30 text-sm transition text-red-400"
-                    >
-                      Remove
-                    </button>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarPick}
-                  />
-                </div>
+              <div className="relative">
+                <User className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <input
+                  className="input-modern pl-10"
+                  placeholder="Full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </div>
-
-              <div className="col-span-2">
-                <label className="text-sm text-gray-300 block mb-1 font-semibold">Role</label>
-                <div className="p-3 bg-dark-800 border border-dark-700/50 rounded-lg text-sm text-gray-300">{role}</div>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <input
+                  className="input-modern pl-10"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
             </div>
 
-            <div>
-              <label className="text-sm text-gray-300 block mb-1 font-semibold">New password (leave blank to keep)</label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
               <input
                 type="password"
-                className="input-modern w-full"
-                placeholder="New password"
+                className="input-modern pl-10"
+                placeholder="New password (leave blank to keep)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-4 flex-wrap">
-              <button
-                onClick={saveChanges}
-                className="btn-primary"
-              >
-                Save Changes
+            <div className="flex items-center gap-3 pt-2 flex-wrap">
+              <button onClick={saveChanges} className="btn-primary flex items-center gap-2">
+                <Save className="w-4 h-4" /> Save Changes
               </button>
-
-              <button
-                onClick={handleLogout}
-                className="btn-secondary"
-              >
-                Logout
+              <button onClick={handleLogout} className="btn-secondary flex items-center gap-2">
+                <LogOut className="w-4 h-4" /> Logout
               </button>
-
               <button
                 onClick={handleDeleteAccount}
-                className="ml-auto px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-lg hover:bg-red-500/30 text-red-400 text-sm transition font-medium"
+                className="btn-danger ml-auto flex items-center gap-2"
               >
-                Delete Account
+                <Trash2 className="w-4 h-4" /> Delete Account
               </button>
             </div>
           </div>
         </div>
 
-        <div className="card-glass-hover p-8">
-          <h2 className="text-lg font-bold mb-4 text-gray-100">Account Info</h2>
+        {/* Account Info */}
+        <div className="card-glass-hover p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center">
+              <Info className="w-4 h-4 text-neon-blue" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-100">Account Info</h2>
+          </div>
           <div className="text-sm text-gray-400 space-y-2">
-            <div><strong className="text-gray-300">ID:</strong> <span className="text-gray-400">{user.id || '—'}</span></div>
-            <div><strong className="text-gray-300">Registered:</strong> <span className="text-gray-400">{user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}</span></div>
+            <div className="flex items-center gap-2"><span className="text-gray-500 w-24 shrink-0">ID</span> <span className="text-gray-300 font-mono text-xs">{user.id || user._id || '—'}</span></div>
+            <div className="flex items-center gap-2"><span className="text-gray-500 w-24 shrink-0">Registered</span> <span className="text-gray-300">{user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}</span></div>
           </div>
         </div>
 
         {!isPrivileged && (
-          <div className="card-glass-hover p-8">
-            <h2 className="text-lg font-bold mb-4 text-gray-100">Interview Invitations</h2>
+          <div className="card-glass-hover p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center">
+                <Video className="w-4 h-4 text-neon-purple" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-100">Interview Invitations</h2>
+              {interviewInvites.length > 0 && (
+                <span className="ml-auto badge-primary text-xs">{interviewInvites.length} pending</span>
+              )}
+            </div>
             {interviewInvites.length === 0 ? (
-              <div className="text-sm text-gray-400">No pending interview invitations.</div>
+              <div className="text-center py-6">
+                <Video className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No pending interview invitations.</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {interviewInvites.map((invite) => (
@@ -344,12 +343,26 @@ export default function Profile() {
           </div>
         )}
 
-        <div className="card-glass-hover p-8">
-          <h2 className="text-lg font-bold mb-4 text-gray-100">Applications</h2>
+        <div className="card-glass-hover p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center">
+              <Briefcase className="w-4 h-4 text-neon-cyan" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-100">Applications</h2>
+            {!isPrivileged && applications.length > 0 && (
+              <span className="ml-auto text-xs text-gray-500">{applications.length} total</span>
+            )}
+          </div>
           {isPrivileged ? (
-            <div className="text-sm text-gray-400">Applications are only visible for Job Seeker accounts.</div>
+            <div className="text-center py-6">
+              <Briefcase className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Applications are only visible for Job Seeker accounts.</p>
+            </div>
           ) : applications.length === 0 ? (
-            <div className="text-sm text-gray-400">You have no recorded applications yet.</div>
+            <div className="text-center py-6">
+              <Briefcase className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">You have no recorded applications yet.</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {applications.map((a, idx) => (

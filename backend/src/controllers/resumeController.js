@@ -1,6 +1,7 @@
 const Resume = require('../models/Resume');
 const User = require('../models/User');
-const groqService = require('../services/groqService');
+const modelService = require('../services/modelService');
+const { parseResumeText } = require('../utils/resumeParser');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const fs = require('fs');
@@ -62,51 +63,133 @@ exports.uploadResume = async (req, res) => {
 
     await resume.save();
 
-    // Extract text and call Groq AI
+    // Extract text and parse resume (fast text parser first, AI enhancement async)
     try {
       console.log('🤖 Extracting text from file...');
       const resumeText = await extractTextFromFile(filePath, file.mimetype);
       console.log('✅ Extracted text length:', resumeText.length);
       
-      console.log('🤖 Parsing resume with Groq...');
-      const analysis = await groqService.parseResume(resumeText);
+      // ── Helper: ensure skills is always an array of individual strings ──
+      const normalizeSkills = (raw) => {
+        if (!raw) return [];
+        // If it's a string, split by common delimiters
+        if (typeof raw === 'string') {
+          return raw.split(/[,;|•\n]+/).map(s => s.trim()).filter(s => s.length > 1);
+        }
+        // If it's an array, flatten any nested comma-separated strings
+        if (Array.isArray(raw)) {
+          const result = [];
+          for (const item of raw) {
+            if (typeof item === 'string' && item.includes(',')) {
+              result.push(...item.split(',').map(s => s.trim()).filter(s => s.length > 1));
+            } else if (typeof item === 'string' && item.trim().length > 1) {
+              result.push(item.trim());
+            }
+          }
+          return result;
+        }
+        return [];
+      };
+
+      // ── Helper: normalize experience entries to match schema (jobTitle, company) ──
+      const normalizeExperience = (arr) => {
+        if (!Array.isArray(arr)) return [];
+        return arr.map(e => ({
+          jobTitle: e.jobTitle || e.title || e.position || e.role || '',
+          company: e.company || e.employer || e.organization || '',
+          duration: e.duration || e.period || e.dates || '',
+          description: e.description || e.responsibilities || '',
+        })).filter(e => e.jobTitle || e.company);
+      };
+
+      // ── Helper: normalize education entries to match schema (degree, school) ──
+      const normalizeEducation = (arr) => {
+        if (!Array.isArray(arr)) return [];
+        return arr.map(e => ({
+          degree: e.degree || e.degreeType || e.qualification || '',
+          school: e.school || e.institution || e.university || e.college || '',
+          field: e.field || e.major || e.specialization || '',
+          year: e.year || e.dates || e.period || '',
+        })).filter(e => e.degree || e.school);
+      };
+
+      // Primary: call the model server's regex parser (fast, comprehensive)
+      console.log('📝 Parsing resume via model server (regex engine)...');
+      let data;
+      let usedModel = 'regex-nlp';
       
-      console.log('Analysis result:', analysis);
-      
-      if (analysis.success && analysis.data) {
-        const data = analysis.data;
-        console.log('Parsed data received:', {
-          skills: data.skills?.length,
-          experience: data.experience?.length,
-          education: data.education?.length,
-          score: data.score
-        });
+      try {
+        const analysis = await modelService.parseResume(resumeText);
         
-        resume.parsedText = resumeText.substring(0, 10000);
-        resume.skills = data.skills || [];
-        resume.experience = data.experience || [];
-        resume.education = data.education || [];
-        resume.score = data.score || 0;
-        resume.aiAnalysis = {
-          fullName: data.fullName || user.name,
-          email: data.email || user.email,
-          phone: data.phone || user.phone,
-          location: data.location || '',
-          summary: data.summary || '',
-          strengths: data.strengths || [],
-          improvements: data.improvements || []
-        };
-        resume.aiModel = 'llama-3.1-8b-instant';
-        resume.isParsed = true;
-        console.log('✅ Resume parsed successfully');
-      } else {
-        console.warn('⚠️ AI parsing returned error:', analysis.error);
-        resume.isParsed = false;
+        if (analysis.success && analysis.data && typeof analysis.data === 'object') {
+          const d = analysis.data;
+          data = {
+            fullName: d.fullName || '',
+            email: d.email || '',
+            phone: d.phone || '',
+            location: d.location || '',
+            summary: d.summary || '',
+            skills: normalizeSkills(d.skills),
+            experience: normalizeExperience(d.experience),
+            education: normalizeEducation(d.education),
+            projects: d.projects || [],
+            certifications: d.certifications || [],
+            score: d.score || 0,
+            scoreBreakdown: d.scoreBreakdown || {},
+            strengths: d.strengths || [],
+            improvements: d.improvements || [],
+          };
+          usedModel = analysis.model || 'regex-nlp';
+          console.log('✅ Model server parsed:', {
+            skills: data.skills?.length || 0,
+            experience: data.experience?.length || 0,
+            education: data.education?.length || 0,
+            score: data.score
+          });
+        } else {
+          throw new Error('Model server returned empty data');
+        }
+      } catch (modelErr) {
+        // Fallback: local JS text parser (if model server is unreachable)
+        console.warn('⚠️ Model server unavailable, using local text parser:', modelErr.message);
+        data = parseResumeText(resumeText);
+        usedModel = 'text-parser-fallback';
+        data.skills = normalizeSkills(data.skills);
+        data.experience = normalizeExperience(data.experience);
+        data.education = normalizeEducation(data.education);
       }
+      
+      console.log('Final parsed data:', {
+        model: usedModel,
+        skills: data.skills?.length,
+        experience: data.experience?.length,
+        education: data.education?.length,
+        score: data.score
+      });
+      
+      resume.parsedText = resumeText.substring(0, 10000);
+      resume.skills = normalizeSkills(data.skills);
+      resume.experience = normalizeExperience(data.experience);
+      resume.education = normalizeEducation(data.education);
+      resume.score = data.score || 0;
+      resume.aiAnalysis = {
+        fullName: data.fullName || user.name,
+        email: data.email || user.email,
+        phone: data.phone || user.phone,
+        location: data.location || '',
+        summary: data.summary || '',
+        strengths: data.strengths || [],
+        improvements: data.improvements || [],
+        experience: normalizeExperience(data.experience),
+        education: normalizeEducation(data.education),
+      };
+      resume.aiModel = usedModel;
+      resume.isParsed = true;
+      console.log('✅ Resume parsed successfully with', usedModel);
       
       await resume.save();
       res.status(201).json({ 
-        message: resume.isParsed ? 'Resume uploaded and parsed successfully' : 'Resume uploaded (AI analysis pending)',
+        message: 'Resume uploaded and parsed successfully',
         resume
       });
     } catch (aiErr) {

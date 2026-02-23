@@ -2,23 +2,16 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { authMiddleware } = require('../middlewares/auth');
+const roleMiddleware = require('../middlewares/role');
 const resumeController = require('../controllers/resumeController');
 
 const upload = multer({ dest: 'uploads/' });
 
-// Upload a new resume (must come before GET /:id to avoid route conflict)
-router.post('/upload', authMiddleware, upload.single('resume'), resumeController.uploadResume);
-
-// Get all user resumes
-router.get('/', authMiddleware, resumeController.getUserResumes);
-
-// Get a specific resume
+// Job Seeker only — resume operations
+router.post('/upload', authMiddleware, roleMiddleware('jobseeker'), upload.single('resume'), resumeController.uploadResume);
+router.get('/', authMiddleware, roleMiddleware('jobseeker'), resumeController.getUserResumes);
 router.get('/:id', authMiddleware, resumeController.getResume);
-
-// Update resume
-router.put('/:id', authMiddleware, resumeController.updateResume);
-
-// Delete resume
-router.delete('/:id', authMiddleware, resumeController.deleteResume);
+router.put('/:id', authMiddleware, roleMiddleware('jobseeker'), resumeController.updateResume);
+router.delete('/:id', authMiddleware, roleMiddleware('jobseeker'), resumeController.deleteResume);
 
 module.exports = router;

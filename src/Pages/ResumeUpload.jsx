@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { AlertCircle, CheckCircle, Loader } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader, Upload, FileText, X, Shield } from "lucide-react";
 
 export default function ResumeUpload() {
   const [file, setFile] = useState(null);
@@ -10,35 +10,32 @@ export default function ResumeUpload() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const navigate = useNavigate();
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
+  const processFile = useCallback((selectedFile) => {
     setError(null);
     setSuccess(null);
-    
-    if (selectedFile) {
-      // Validate file type
-      const fileType = selectedFile.name.toLowerCase();
-      const isValidType = fileType.endsWith(".pdf") || fileType.endsWith(".doc") || fileType.endsWith(".docx");
-      
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      const isValidSize = selectedFile.size <= maxSize;
+    if (!selectedFile) return;
+    const fileType = selectedFile.name.toLowerCase();
+    const isValidType = fileType.endsWith(".pdf") || fileType.endsWith(".doc") || fileType.endsWith(".docx");
+    const maxSize = 5 * 1024 * 1024;
+    const isValidSize = selectedFile.size <= maxSize;
+    if (!isValidType) { setError("Please upload only PDF, DOC, or DOCX files"); return; }
+    if (!isValidSize) { setError("File size must be less than 5MB"); return; }
+    setFile(selectedFile);
+  }, []);
 
-      if (!isValidType) {
-        setError("Please upload only PDF, DOC, or DOCX files");
-        return;
-      }
+  const handleFileChange = (e) => processFile(e.target.files[0]);
 
-      if (!isValidSize) {
-        setError("File size must be less than 5MB");
-        return;
-      }
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setDragOver(false);
+    processFile(e.dataTransfer.files[0]);
+  }, [processFile]);
 
-      setFile(selectedFile);
-    }
-  };
+  const handleDragOver = useCallback((e) => { e.preventDefault(); setDragOver(true); }, []);
+  const handleDragLeave = useCallback(() => setDragOver(false), []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -188,24 +185,47 @@ export default function ResumeUpload() {
 
             <form onSubmit={handleSubmit}>
               {/* Upload Area */}
-              <div className="border-2 border-dashed border-dark-700 rounded-xl p-8 text-center mb-6 hover:border-neon-cyan transition cursor-pointer">
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                className={`border-2 border-dashed rounded-2xl p-8 text-center mb-6 transition-all duration-300 cursor-pointer
+                  ${dragOver
+                    ? 'border-neon-cyan bg-neon-cyan/5 scale-[1.02] shadow-lg shadow-neon-cyan/10'
+                    : file
+                      ? 'border-green-500/40 bg-green-500/5'
+                      : 'border-dark-700 hover:border-neon-cyan/50 hover:bg-dark-800/30'
+                  }`}
+              >
                   {!file ? (
                     <div 
                       onClick={() => !uploading && document.getElementById('fileInput').click()}
                       className="space-y-4"
                     >
-                      <div className="text-4xl">📄</div>
+                      <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center transition-colors
+                        ${dragOver ? 'bg-neon-cyan/20' : 'bg-dark-800 border border-dark-700/50'}`}>
+                        <Upload className={`w-6 h-6 transition-colors ${dragOver ? 'text-neon-cyan' : 'text-gray-500'}`} />
+                      </div>
                       <div>
-                        <p className="text-gray-300 font-medium text-lg">Click to upload your resume</p>
+                        <p className="text-gray-300 font-medium text-lg">
+                          {dragOver ? 'Drop your file here' : 'Click to upload your resume'}
+                        </p>
                         <p className="text-gray-500 text-sm mt-1">or drag and drop your file here</p>
+                        <div className="flex items-center justify-center gap-2 mt-3">
+                          {['PDF', 'DOC', 'DOCX'].map(f => (
+                            <span key={f} className="px-2 py-0.5 text-[10px] font-semibold bg-dark-800 border border-dark-700/50 rounded text-gray-500">{f}</span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ) : (
                   <div className="space-y-4">
-                    <div className="text-4xl text-green-400">✅</div>
-                    <div className="text-left bg-dark-800 p-4 rounded-lg border border-dark-700/50">
-                      <p className="font-medium text-gray-100">{file.name}</p>
-                      <p className="text-gray-400 text-sm">Size: {(file.size / 1024).toFixed(2)} KB</p>
+                    <div className="mx-auto w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-green-400" />
+                    </div>
+                    <div className="text-left bg-dark-800/60 p-4 rounded-xl border border-dark-700/50">
+                      <p className="font-medium text-gray-100 truncate">{file.name}</p>
+                      <p className="text-gray-500 text-sm">Size: {(file.size / 1024).toFixed(1)} KB</p>
                     </div>
                     {!uploading && (
                       <div className="flex gap-3 justify-center">
@@ -276,9 +296,10 @@ export default function ResumeUpload() {
               </div>
 
               {/* Security Note */}
-              <div className="mt-6 p-4 card-glass rounded-lg">
-                <p className="text-gray-400 text-sm text-center">
-                  🔒 Your files are secure and private. We only use them for analysis and never share with third parties.
+              <div className="mt-6 p-4 card-glass rounded-xl flex items-center gap-3">
+                <Shield className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <p className="text-gray-500 text-sm">
+                  Your files are secure and private. We only use them for analysis and never share with third parties.
                 </p>
               </div>
               {/* Hidden file input always present so Change File can trigger it */}

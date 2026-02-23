@@ -44,7 +44,7 @@ const resumeSchema = new mongoose.Schema({
     education: [Object]
   },
   
-  aiModel: String, // 'gemini-1.5-pro-latest', 'gpt-4', etc.
+  aiModel: String, // e.g. 'regex-nlp' (rule-based parser)
   isDefault: { type: Boolean, default: false },
   
   // Metadata

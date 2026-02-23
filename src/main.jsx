@@ -4,12 +4,17 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import { migrateLocalStorageToMongo, isMigrationNeeded } from "./services/migration.js";
 
+// RBAC
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import { isAuthenticated, getUserRole } from "./config/permissions.js";
+
 // Import Pages
 import Landing from "./Pages/Landing.jsx";
 import ResumeUpload from "./Pages/ResumeUpload.jsx";
 import Analysis from "./Pages/Analysis.jsx";
 import Jobs from "./Pages/Jobs.jsx";
 import Interview from "./Pages/Interview.jsx";
+import InterviewInterface from "./Pages/InterviewInterface.jsx";
 import AuthModal from "./Pages/Auth.jsx";
 import InterviewBot from "./Pages/chatbot.jsx";
 import Error404 from "./Pages/Error.jsx";
@@ -17,6 +22,9 @@ import About from "./Pages/About.jsx";
 import Contact from "./Pages/Contact.jsx";
 import Admin from "./Pages/Admin.jsx";
 import RecruiterDashboard from "./Pages/RecruiterDashboard.jsx";
+import RecruiterJobs from "./Pages/RecruiterJobs.jsx";
+import RecruiterShortlist from "./Pages/RecruiterShortlist.jsx";
+import JobRecommendations from "./Pages/JobRecommendations.jsx";
 import Profile from "./Pages/Profile.jsx";
 import JobDetails from "./Pages/JobDetails.jsx";
 import Services from "./Pages/Services.jsx";
@@ -61,23 +69,34 @@ function AuthRoute() {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public Routes */}
+      {/* Public Routes — no auth required */}
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/auth" element={<AuthRoute />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
-      <Route path="/upload"element={<ResumeUpload />}/>
-      <Route path="/analysis/:resumeId"element={<Analysis />}/>
-      <Route path="/jobs"element={<Jobs />}/>
-      <Route path="/interview/:jobId"element={<Interview />}/>
-      <Route path="/chatbot"element={<InterviewBot />}/>
       <Route path="/services" element={<Services />} />
-      <Route path="/job/:title" element={<JobDetails />} />
       <Route path="*" element={<Error404 />} />
-      <Route path="/admin" element={<Admin />} />
-      <Route path="/recruiter" element={<RecruiterDashboard />} />
-      <Route path="/profile" element={<Profile />} />
 
+      {/* Job Seeker Only */}
+      <Route path="/upload" element={<ProtectedRoute requiredRole="jobseeker"><ResumeUpload /></ProtectedRoute>} />
+      <Route path="/analysis/:resumeId" element={<ProtectedRoute requiredRole="jobseeker"><Analysis /></ProtectedRoute>} />
+      <Route path="/jobs" element={<ProtectedRoute requiredRole="jobseeker"><Jobs /></ProtectedRoute>} />
+      <Route path="/job/:title" element={<ProtectedRoute requiredRole="jobseeker"><JobDetails /></ProtectedRoute>} />
+      <Route path="/interview/:jobId" element={<ProtectedRoute requiredRole="jobseeker"><Interview /></ProtectedRoute>} />
+      <Route path="/interview-session/:interviewId" element={<ProtectedRoute requiredRole="jobseeker"><InterviewInterface /></ProtectedRoute>} />
+      <Route path="/chatbot" element={<ProtectedRoute><InterviewBot /></ProtectedRoute>} />
+      <Route path="/recommendations" element={<ProtectedRoute requiredRole="jobseeker"><JobRecommendations /></ProtectedRoute>} />
+
+      {/* Recruiter Only */}
+      <Route path="/recruiter" element={<ProtectedRoute requiredRole="recruiter"><RecruiterDashboard /></ProtectedRoute>} />
+      <Route path="/recruiter/jobs" element={<ProtectedRoute requiredRole="recruiter"><RecruiterJobs /></ProtectedRoute>} />
+      <Route path="/recruiter/shortlist/:jobId" element={<ProtectedRoute requiredRole="recruiter"><RecruiterShortlist /></ProtectedRoute>} />
+
+      {/* Admin Only */}
+      <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Admin /></ProtectedRoute>} />
+
+      {/* Any Authenticated User */}
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
     </Routes>
   );
 }

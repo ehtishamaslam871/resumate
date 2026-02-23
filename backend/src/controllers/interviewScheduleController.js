@@ -3,7 +3,7 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const groqService = require('../services/groqService');
+const modelService = require('../services/modelService');
 
 // ==================== GENERATE INTERVIEW QUESTIONS ====================
 exports.generateInterviewQuestions = async (req, res) => {
@@ -26,38 +26,16 @@ exports.generateInterviewQuestions = async (req, res) => {
 
     console.log(`🤖 Generating interview questions for ${job.title}`);
 
-    const prompt = `Generate 10 technical and behavioral interview questions for a ${job.title} position.
-    
-Job Description: ${job.description}
-Required Skills: ${(job.requiredSkills || []).join(', ')}
-Experience Level: ${job.experienceLevel}
+    const resumeText = application.resume?.parsedText || 'Resume text not available';
+    const jobDescription = `${job.title}. ${job.description || ''}. Required Skills: ${(job.requiredSkills || []).join(', ')}`;
 
-For each question, provide:
-1. The question
-2. Category (Technical or Behavioral)
-3. Difficulty (Easy, Medium, Hard)
-4. Expected keywords to listen for
-
-Return ONLY valid JSON (no markdown):
-{
-  "questions": [
-    {
-      "id": 1,
-      "question": "question text",
-      "category": "Technical or Behavioral",
-      "difficulty": "Easy/Medium/Hard",
-      "expectedKeywords": ["keyword1", "keyword2"]
-    }
-  ]
-}`;
-
-    const result = await groqService.parseResume(prompt);
+    const result = await modelService.generateInterviewQuestions(jobDescription, resumeText);
 
     if (!result.success) {
       return res.status(500).json({ message: 'Failed to generate questions' });
     }
 
-    const questions = result.data.questions || [];
+    const questions = result.questions || [];
 
     // Create interview record
     const interview = new Interview({
@@ -186,7 +164,7 @@ exports.submitAnswer = async (req, res) => {
     console.log(`🤖 Evaluating answer for question ${questionId}`);
 
     // Evaluate answer using AI
-    const evaluationResult = await groqService.evaluateAnswer(
+    const evaluationResult = await modelService.evaluateAnswer(
       question.question,
       answer,
       question.expectedKeywords || []
@@ -215,7 +193,7 @@ exports.submitAnswer = async (req, res) => {
       interview.completedAt = new Date();
 
       // Generate overall feedback
-      const feedbackResult = await groqService.generateInterviewFeedback(
+      const feedbackResult = await modelService.generateInterviewFeedback(
         interview.answers,
         interview.scores
       );
@@ -302,7 +280,7 @@ exports.sendInterviewToCandidate = async (req, res) => {
 
     if (!interview) {
       // Generate questions first
-      const questionResult = await groqService.generateInterviewQuestions(
+      const questionResult = await modelService.generateInterviewQuestions(
         job.description,
         application.resume?.parsedText || ''
       );

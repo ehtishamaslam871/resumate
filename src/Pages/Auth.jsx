@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ChevronDown } from 'lucide-react'
+import { Eye, EyeOff, ChevronDown, User, Mail, Lock, Phone, Briefcase, Shield, UserCheck, Loader2 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import ForgotPasswordModal from '../components/ForgotPasswordModal'
 import { authAPI, setAuthToken } from '../services/api'
@@ -37,13 +37,14 @@ export default function AuthModal() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [phone, setPhone] = useState('')
   const [forgotMode, setForgotMode] = useState(false)
-  const [role, setRole] = useState('Job Seeker')
+  const [role, setRole] = useState('job_seeker')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0])
   const [showCountryDropdown, setShowCountryDropdown] = useState(false)
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   // Helper: demo/social sign-in fallback when no real client ID is configured
@@ -197,6 +198,7 @@ export default function AuthModal() {
 
     if (!validateForm()) return
 
+    setLoading(true)
     try {
       if (isLogin) {
         // Login with API
@@ -234,6 +236,8 @@ export default function AuthModal() {
       }
     } catch (err) {
       setError(err.message || 'An error occurred. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -272,20 +276,25 @@ export default function AuthModal() {
           <form onSubmit={handleSubmit} className="card-glass p-8">
             {/* Role Selection */}
             <div className="mb-6">
-              <label className="block text-gray-300 mb-3 font-semibold">I am a:</label>
+              <label className="block text-gray-300 mb-3 font-semibold text-sm">I am a:</label>
               <div className="grid grid-cols-3 gap-2">
-                {['Job Seeker', 'recruiter', 'admin'].map((r) => (
+                {[
+                  { value: 'job_seeker', label: 'Job Seeker', icon: Briefcase },
+                  { value: 'recruiter', label: 'Recruiter', icon: UserCheck },
+                  { value: 'admin', label: 'Admin', icon: Shield },
+                ].map(({ value, label, icon: Icon }) => (
                   <button
-                    key={r}
+                    key={value}
                     type="button"
-                    onClick={() => setRole(r)}
-                    className={`py-2 rounded-lg transition-all duration-300 font-medium ${
-                      role === r 
-                        ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-dark-950 shadow-lg shadow-neon-cyan/50' 
-                        : 'bg-dark-800 text-gray-300 hover:bg-dark-700 border border-dark-700/50'
+                    onClick={() => setRole(value)}
+                    className={`py-2.5 rounded-xl transition-all duration-300 font-medium text-sm flex items-center justify-center gap-1.5 ${
+                      role === value 
+                        ? 'bg-gradient-to-r from-neon-cyan to-neon-purple text-dark-950 shadow-lg shadow-neon-cyan/30' 
+                        : 'bg-dark-800/60 text-gray-400 hover:bg-dark-700 border border-dark-700/50 hover:text-gray-200'
                     }`}
                   >
-                    {r === 'Job Seeker' ? 'Job Seeker' : r === 'recruiter' ? 'Recruiter' : 'Admin'}
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
                   </button>
                 ))}
               </div>
@@ -293,13 +302,14 @@ export default function AuthModal() {
 
             {/* Name Field (only for sign up) */}
             {!isLogin && (
-              <div className="mb-4">
+              <div className="mb-4 relative">
+                <User className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Full Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="input-modern w-full"
+                  className="input-modern w-full pl-10"
                   required
                 />
               </div>
@@ -362,25 +372,27 @@ export default function AuthModal() {
             )}
 
             {/* Email Field */}
-            <div className="mb-4">
+            <div className="mb-4 relative">
+              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
               <input
                 type="email"
                 placeholder="Email Address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input-modern w-full"
+                className="input-modern w-full pl-10"
                 required
               />
             </div>
 
             {/* Password Field */}
             <div className="mb-6 relative">
+              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-modern w-full pr-10"
+                className="input-modern w-full pl-10 pr-10"
                 required
               />
               <button
@@ -395,12 +407,13 @@ export default function AuthModal() {
             {/* Confirm Password (only for sign up) */}
             {!isLogin && (
               <div className="mb-6 relative">
+                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="input-modern w-full pr-10"
+                  className="input-modern w-full pl-10 pr-10"
                   required
                 />
                 <button
@@ -414,28 +427,39 @@ export default function AuthModal() {
             )}
 
             {/* Password Strength Indicator (only for sign up) */}
-            {!isLogin && password && (
-              <div className="mb-6 p-4 card-glass rounded-lg text-sm">
-                <p className="text-gray-300 mb-2 font-medium">Password requirements:</p>
-                <ul className="space-y-1 text-xs">
-                  <li className={password.length >= 8 ? 'text-green-400' : 'text-gray-400'}>
-                    ✓ At least 8 characters {password.length >= 8 ? '✓' : ''}
-                  </li>
-                  <li className={/[A-Z]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
-                    ✓ One uppercase letter {/[A-Z]/.test(password) ? '✓' : ''}
-                  </li>
-                  <li className={/[a-z]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
-                    ✓ One lowercase letter {/[a-z]/.test(password) ? '✓' : ''}
-                  </li>
-                  <li className={/[0-9]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
-                    ✓ One number {/[0-9]/.test(password) ? '✓' : ''}
-                  </li>
-                  <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? 'text-green-400' : 'text-gray-400'}>
-                    ✓ One special character {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? '✓' : ''}
-                  </li>
-                </ul>
-              </div>
-            )}
+            {!isLogin && password && (() => {
+              const checks = [
+                { pass: password.length >= 8, label: 'At least 8 characters' },
+                { pass: /[A-Z]/.test(password), label: 'One uppercase letter' },
+                { pass: /[a-z]/.test(password), label: 'One lowercase letter' },
+                { pass: /[0-9]/.test(password), label: 'One number' },
+                { pass: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password), label: 'One special character' },
+              ]
+              const passCount = checks.filter(c => c.pass).length
+              const barColor = passCount <= 1 ? 'bg-red-500' : passCount <= 3 ? 'bg-yellow-500' : passCount <= 4 ? 'bg-neon-cyan' : 'bg-green-500'
+              const strengthLabel = passCount <= 1 ? 'Weak' : passCount <= 3 ? 'Fair' : passCount <= 4 ? 'Good' : 'Strong'
+              return (
+                <div className="mb-6 p-4 card-glass rounded-xl text-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-400 text-xs font-medium">Password strength</p>
+                    <span className={`text-xs font-semibold ${passCount <= 1 ? 'text-red-400' : passCount <= 3 ? 'text-yellow-400' : passCount <= 4 ? 'text-neon-cyan' : 'text-green-400'}`}>{strengthLabel}</span>
+                  </div>
+                  <div className="h-1.5 bg-dark-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${(passCount / 5) * 100}%` }} />
+                  </div>
+                  <ul className="space-y-1 text-xs">
+                    {checks.map((c, i) => (
+                      <li key={i} className={`flex items-center gap-2 transition-colors ${c.pass ? 'text-green-400' : 'text-gray-500'}`}>
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${c.pass ? 'bg-green-500/20' : 'bg-dark-800'}`}>
+                          {c.pass ? '✓' : '○'}
+                        </span>
+                        {c.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })()}
 
             {/* Messages */}
             {error && (
@@ -465,9 +489,11 @@ export default function AuthModal() {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="btn-primary w-full mb-4"
+                  disabled={loading}
+                  className="btn-primary w-full mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isLogin ? 'Sign In' : 'Create Account'}
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {loading ? 'Please wait…' : isLogin ? 'Sign In' : 'Create Account'}
                 </button>
 
                 <div className="flex items-center justify-between">

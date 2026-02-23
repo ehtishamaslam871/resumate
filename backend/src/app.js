@@ -18,6 +18,7 @@ const savedJobRoutes = require('./routes/savedjob');
 const adminRoutes = require('./routes/admin');
 const searchRoutes = require('./routes/search');
 const matchingRoutes = require('./routes/matching');
+const modelRoutes = require('./routes/model');
 
 const app = express();
 
@@ -73,6 +74,9 @@ app.use('/api/admin', adminRoutes);
 
 // Search & Discovery
 app.use('/api/search', searchRoutes);
+
+// Local AI Model Server
+app.use('/api/model', modelRoutes);
 
 // ==================== HEALTH CHECK ====================
 app.get('/', (req, res) => res.json({ 

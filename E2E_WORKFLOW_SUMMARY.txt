@@ -8,7 +8,7 @@
 │  Frontend Server    ✅  http://localhost:5173 (Vite Dev Server)             │
 │  Backend Server     ✅  http://localhost:5000 (Node.js API)                │
 │  Database           ✅  MongoDB Connected                                    │
-│  AI Service         ✅  Groq API (llama-3.1-8b-instant)                     │
+│  AI Service         ✅  Regex parser + Ollama (optional, generative)       │
 │                                                                               │
 │  Overall Status:    🟢 PRODUCTION READY                                      │
 │                                                                               │
@@ -209,7 +209,7 @@
 │                                                                               │
 │  Frontend:     React 18 + Vite + React Router v6                            │
 │  Backend:      Node.js + Express.js + MongoDB + Mongoose ODM                │
-│  AI/LLM:       Groq API (llama-3.1-8b-instant model)                        │
+│  AI/LLM:       Regex parser (parsing) + Ollama (scoring/interview/chat)     │
 │  Auth:         JWT tokens + Role-based access control                       │
 │  Matching:     Weighted algorithm (40% skills, 30% exp, 20% loc, 10% buf)   │
 │  Database:     MongoDB (Atlas or local)                                     │

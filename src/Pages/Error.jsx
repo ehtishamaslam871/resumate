@@ -1,6 +1,7 @@
 import React from 'react'
 import Navbar from '../components/Navbar'
 import { NavLink } from 'react-router-dom'
+import { Home, HeadphonesIcon } from 'lucide-react'
 
 export default function Error404() {
   return (
@@ -14,7 +15,9 @@ export default function Error404() {
       <main className="max-w-4xl mx-auto px-6 py-20 flex items-center justify-center min-h-[85vh]">
         <div className="text-center w-full">
           {/* Card Glass Container */}
-          <div className="card-glass p-12 max-w-2xl mx-auto">
+          <div className="card-glass p-12 max-w-2xl mx-auto animate-scale-in relative overflow-hidden">
+            {/* Decorative gradient line */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-pink" />
             {/* Header */}
             <div className="flex items-center justify-center gap-3 mb-8">
               <div className="bg-gradient-to-br from-neon-cyan to-neon-purple text-dark-950 px-3 py-2 rounded-full font-bold text-sm">
@@ -24,7 +27,7 @@ export default function Error404() {
             </div>
 
             {/* Error Number */}
-            <h1 className="text-9xl font-bold text-gradient mb-4">404</h1>
+            <h1 className="text-9xl font-bold text-gradient mb-4 animate-float">404</h1>
             <h2 className="text-3xl font-bold text-gray-100 mb-6">Page Not Found</h2>
             
             <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
@@ -35,16 +38,16 @@ export default function Error404() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <NavLink
                 to="/"
-                className="btn-primary"
+                className="btn-primary flex items-center gap-2"
               >
-                Go Home
+                <Home className="w-4 h-4" /> Go Home
               </NavLink>
 
               <NavLink
                 to="/contact"
-                className="btn-secondary"
+                className="btn-secondary flex items-center gap-2"
               >
-                Contact Support
+                <HeadphonesIcon className="w-4 h-4" /> Contact Support
               </NavLink>
             </div>
 

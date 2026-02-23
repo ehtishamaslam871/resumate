@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { X, Mail, KeyRound, Lock, ArrowRight } from 'lucide-react'
 
 export default function ForgotPasswordModal({ initialEmail = '', onClose = () => {}, onSuccess = () => {} }) {
   const [email, setEmail] = useState(initialEmail)
@@ -61,72 +62,113 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md bg-gray-800 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Reset Password</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">Close</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-dark-950/80 backdrop-blur-sm p-4 animate-fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md card-glass rounded-2xl p-8 border border-dark-700/60 shadow-2xl shadow-dark-950/50 animate-scale-in">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-cyan/20 to-neon-purple/10 border border-dark-700/50
+              flex items-center justify-center">
+              <KeyRound className="w-5 h-5 text-neon-cyan" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-100">Reset Password</h3>
+              <p className="text-xs text-gray-500">Recover your account access</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-dark-800/60 text-gray-500 hover:text-gray-300 transition-all">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        <p className="text-sm text-gray-400 mb-4">Enter your email to receive a reset code (demo).</p>
+        {/* Messages */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/15 border border-red-500/40 rounded-xl text-red-300 text-sm flex items-start gap-2">
+            <span className="mt-0.5">&#9888;</span>
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-3 bg-green-500/15 border border-green-500/40 rounded-xl text-green-300 text-sm flex items-start gap-2">
+            <span className="mt-0.5">&#10003;</span>
+            <span>{success}</span>
+          </div>
+        )}
 
-        {error && <div className="mb-3 p-2 bg-red-900/30 border border-red-700 rounded text-red-300 text-sm">{error}</div>}
-        {success && <div className="mb-3 p-2 bg-green-900/30 border border-green-700 rounded text-green-300 text-sm">{success}</div>}
-
-        <div className="space-y-3">
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
-          />
+        <div className="space-y-4">
+          {/* Email */}
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-modern pl-10"
+            />
+          </div>
 
           {!resetCodeSent ? (
             <button
               type="button"
               onClick={handleSendResetCode}
-              className="w-full py-3 bg-cyan-600 text-gray-900 rounded-lg font-semibold hover:bg-cyan-500 transition"
+              className="btn-primary w-full flex items-center justify-center gap-2"
             >
               Send Reset Code
+              <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
             <>
-              <input
-                type="text"
-                placeholder="Reset Code"
-                value={enteredResetCode}
-                onChange={(e) => setEnteredResetCode(e.target.value)}
-                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
-              />
-              <input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
-              />
-              <input
-                type="password"
-                placeholder="Confirm New Password"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="w-full p-3 bg-gray-700 rounded-lg placeholder-gray-400"
-              />
+              <div className="relative">
+                <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Enter Reset Code"
+                  value={enteredResetCode}
+                  onChange={(e) => setEnteredResetCode(e.target.value)}
+                  className="input-modern pl-10 font-mono tracking-widest"
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <input
+                  type="password"
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="input-modern pl-10"
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <input
+                  type="password"
+                  placeholder="Confirm New Password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="input-modern pl-10"
+                />
+              </div>
               <button
                 type="button"
                 onClick={handleResetPassword}
-                className="w-full py-3 bg-green-600 text-gray-900 rounded-lg font-semibold hover:bg-green-500 transition"
+                className="btn-primary w-full"
               >
                 Reset Password
               </button>
 
-              <div className="text-sm text-gray-500">Demo code: <span className="font-mono text-gray-200">{sentResetCode}</span></div>
+              <div className="p-3 card-glass rounded-xl text-center">
+                <p className="text-xs text-gray-500 mb-1">Demo reset code:</p>
+                <p className="font-mono text-sm text-neon-cyan font-bold tracking-[0.3em]">{sentResetCode}</p>
+              </div>
             </>
           )}
 
-          <div className="flex justify-end">
-            <button onClick={onClose} className="text-sm text-gray-400 hover:text-gray-200">Cancel</button>
+          <div className="flex justify-end pt-1">
+            <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+              Back to Sign In
+            </button>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@ const Resume = require('../models/Resume');
 const User = require('../models/User');
 const Application = require('../models/Application');
 const Notification = require('../models/Notification');
-const groqService = require('../services/groqService');
+const modelService = require('../services/modelService');
 
 // ==================== START INTERVIEW ====================
 exports.startInterview = async (req, res) => {
@@ -30,9 +30,9 @@ exports.startInterview = async (req, res) => {
       return res.status(400).json({ message: 'Interview already in progress for this job' });
     }
 
-    // Generate interview questions using Groq
-    console.log('🤖 Generating interview questions with Groq...');
-    const questionResult = await groqService.generateInterviewQuestions(
+    // Generate interview questions using local Llama model
+    console.log('🤖 Generating interview questions with local Llama model...');
+    const questionResult = await modelService.generateInterviewQuestions(
       job.description || job.title,
       resume.parsedText || 'Resume text not available'
     );
@@ -120,9 +120,9 @@ exports.submitAnswer = async (req, res) => {
     const currentQuestion = interview.questions[interview.currentQuestionIndex];
     if (!currentQuestion) return res.status(400).json({ message: 'No more questions' });
 
-    // Evaluate answer with Gemini
-    console.log('🤖 Evaluating answer with Gemini...');
-    const evaluationResult = await groqService.evaluateAnswer(
+    // Evaluate answer with local Llama model
+    console.log('🤖 Evaluating answer with local Llama model...');
+    const evaluationResult = await modelService.evaluateAnswer(
       currentQuestion.question,
       answer,
       currentQuestion.expectedKeywords || []
@@ -161,8 +161,8 @@ exports.submitAnswer = async (req, res) => {
       interview.recommendation = avgScore >= 75 ? 'hire' : avgScore >= 60 ? 'maybe' : 'reject';
 
       // Generate final feedback
-      console.log('🤖 Generating final feedback with Gemini...');
-      const feedbackResult = await groqService.generateInterviewFeedback(
+      console.log('🤖 Generating final feedback with local Llama model...');
+      const feedbackResult = await modelService.generateInterviewFeedback(
         interview.answers,
         interview.scores
       );

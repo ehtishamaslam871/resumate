@@ -3,7 +3,7 @@
  * Calculates compatibility scores between resumes and job requirements
  */
 
-const groqService = require('./groqService');
+const modelService = require('./modelService');
 
 /**
  * Calculate skill match score
@@ -164,8 +164,9 @@ const getRecommendedJobs = (resume, openJobs = []) => {
 };
 
 /**
- * AI-Based resume shortlisting using Groq
- * Analyzes multiple resumes against job requirements and shortlists best candidates
+ * AI-Based resume shortlisting using generative AI (Ollama)
+ * Analyzes multiple resumes against job requirements and shortlists best candidates.
+ * Falls back to score-based ranking when AI is unavailable.
  * @param {Array} applications - Array of applications with resumes
  * @param {Object} job - Job posting
  * @param {Number} topN - Top N candidates to shortlist (default 5)
@@ -222,10 +223,24 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
   "summary": "Overall summary of shortlisting results"
 }`;
 
-    const aiResult = await groqService.parseResume(analysisPrompt);
+    // Use chat endpoint (generative AI) — not parseResume (regex parser)
+    const aiResult = await modelService.chat(analysisPrompt, 'recruiter-shortlisting');
+    let shortlistData = null;
+    
+    if (aiResult.success && aiResult.response) {
+      try {
+        // Try to extract JSON from the chat response
+        const jsonMatch = aiResult.response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          shortlistData = JSON.parse(jsonMatch[0]);
+        }
+      } catch (parseErr) {
+        console.warn('Failed to parse AI shortlist response:', parseErr.message);
+      }
+    }
 
-    if (!aiResult.success) {
-      console.warn('AI shortlisting failed, using score-based ranking');
+    if (!shortlistData) {
+      console.warn('AI shortlisting unavailable, using score-based ranking');
       return applications
         .map((app, idx) => ({
           ...app,
@@ -236,7 +251,6 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
     }
 
     // Process AI results
-    const shortlistData = aiResult.data;
     const shortlistedIds = new Set(shortlistData.bestCandidates || []);
 
     const result = applications

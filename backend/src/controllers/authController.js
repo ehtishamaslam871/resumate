@@ -16,12 +16,21 @@ exports.register = async (req, res) => {
     let user = await User.findOne({ email: email.toLowerCase() });
     if (user) return res.status(409).json({ message: 'User already exists' });
 
+    // Normalize role to match enum: job_seeker, recruiter, admin
+    const normalizeRole = (r) => {
+      if (!r) return 'job_seeker';
+      const cleaned = r.toLowerCase().replace(/[\s_-]/g, '');
+      if (cleaned === 'recruiter') return 'recruiter';
+      if (cleaned === 'admin') return 'admin';
+      return 'job_seeker'; // jobseeker, job_seeker, Job Seeker → job_seeker
+    };
+
     // Create user (password will be hashed by pre-save hook)
     user = new User({
       name,
       email: email.toLowerCase(),
       password,
-      role: (role || 'job_seeker').toLowerCase().replace(/\s+/g, '_'),
+      role: normalizeRole(role),
       phone,
       emailVerified: false,
       isActive: true

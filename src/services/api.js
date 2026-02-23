@@ -392,14 +392,13 @@ export const interviewAPI = {
 
   /**
    * Submit interview answer
-   * @param {string} sessionId - Interview session ID
-   * @param {number} questionIndex - Question index (0-based)
+   * @param {string} interviewId - Interview ID
    * @param {string} answer - Answer text
    */
-  submitAnswer: (sessionId, questionIndex, answer) => {
+  submitAnswer: (interviewId, answer) => {
     return apiCall('/interview/submit-answer', {
       method: 'POST',
-      body: JSON.stringify({ sessionId, questionIndex, answer }),
+      body: JSON.stringify({ interviewId, answer }),
     })
   },
 
@@ -612,6 +611,22 @@ export const adminAPI = {
   },
 }
 
+// ==================== CHAT / AI ENDPOINTS ====================
+export const chatAPI = {
+  /**
+   * Send a message to the AI career assistant
+   * @param {string} message - User message
+   * @param {string} context - Optional context (e.g., 'career_advice', 'resume_tips')
+   * @param {Object} resumeData - Optional resume data for personalized responses
+   */
+  sendMessage: (message, context = null, resumeData = null) => {
+    return apiCall('/model/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, context, resumeData }),
+    })
+  },
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 export const setAuthToken = (token, user) => {
   if (token) {
@@ -643,6 +658,7 @@ export default {
   matching: matchingAPI,
   notification: notificationAPI,
   admin: adminAPI,
+  chat: chatAPI,
   authAPI,
   resumeAPI,
   jobAPI,
@@ -651,6 +667,7 @@ export default {
   matchingAPI,
   notificationAPI,
   adminAPI,
+  chatAPI,
   setAuthToken,
   clearAuth,
   isAuthenticated,

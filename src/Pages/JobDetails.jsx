@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import api from "../services/api";
 import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function JobDetails() {
@@ -26,12 +27,11 @@ export default function JobDetails() {
 
   const matched = requiredSkills.filter((s) => userSkills.includes(s));
 
-  const handleApply = () => {
+  const handleApply = async () => {
     let user = null
     try {
-      user = JSON.parse(localStorage.getItem("resumate_user") || "null");
+      user = JSON.parse(localStorage.getItem("resumate_user") || localStorage.getItem("user") || "null");
       if (!user) {
-        // require login/signup
         navigate("/auth", { replace: true });
         return;
       }
@@ -40,114 +40,70 @@ export default function JobDetails() {
       return;
     }
 
-    // simulate an application submission
-    const now = new Date().toISOString();
-    setApplied(true);
-    setApplicationStatus("Pending");
-    setApplicationDate(now);
-
-    // persist applications to localStorage with a status field and user id
     try {
-      const appsKey = "resumate_applications";
-      const existing = JSON.parse(localStorage.getItem(appsKey) || "[]");
-      // try to avoid duplicate entries:
-      // - if an entry exists for this job/company with no userId (legacy), upgrade it to belong to this user
-      // - if an entry exists for this job/company and already belongs to this user, don't add another
-      const idx = existing.findIndex(a => a.job === job.title && a.company === job.company)
-      if (idx >= 0) {
-        const entry = existing[idx]
-        if (!entry.userId) {
-          // upgrade legacy entry to belong to this user and refresh date/status
-          existing[idx] = { ...entry, userId: user?.id || user?.email || null, date: now, status: 'Pending' }
-        } else if (entry.userId === user?.id || entry.userId === user?.email) {
-          // already applied by this user; update timestamp/status in-place
-          existing[idx] = { ...entry, date: now, status: 'Pending' }
-        } else {
-          // different user's application exists; append new entry for current user
-          existing.push({ job: job.title, company: job.company, date: now, status: 'Pending', userId: user?.id || user?.email || null })
+      // If we have a job ID from the backend, use the API
+      if (job._id || job.id) {
+        const jobId = job._id || job.id;
+        
+        // Get user's resumes
+        const resumesResponse = await api.resume.getUserResumes();
+        const resumes = resumesResponse.resumes || resumesResponse || [];
+        
+        if (!resumes || resumes.length === 0) {
+          alert("Please upload a resume before applying for jobs");
+          navigate("/upload");
+          return;
         }
-      } else {
-        existing.push({ job: job.title, company: job.company, date: now, status: "Pending", userId: user?.id || user?.email || null });
+
+        const resumeId = resumes[0]._id || resumes[0].id;
+        await api.application.createApplication(jobId, resumeId);
       }
-      localStorage.setItem(appsKey, JSON.stringify(existing));
-      // If this user had previously hidden a legacy entry for this job, remove that hidden flag
-      try {
-        const hiddenKey = 'resumate_hidden_applications'
-        const hidden = JSON.parse(localStorage.getItem(hiddenKey) || '[]')
-        const cleaned = hidden.filter(h => !(h.job === job.title && h.company === job.company && (h.userId === user?.id || h.userId === user?.email)))
-        if (cleaned.length !== hidden.length) {
-          localStorage.setItem(hiddenKey, JSON.stringify(cleaned))
-        }
-      } catch (e) {
-        // ignore hidden list errors
-      }
-    } catch (e) {}
+
+      // Update local state
+      const now = new Date().toISOString();
+      setApplied(true);
+      setApplicationStatus("Pending");
+      setApplicationDate(now);
+    } catch (e) {
+      console.error("Application error:", e);
+      alert(e.message || "Failed to submit application");
+    }
   };
 
   // load any existing application for this job from localStorage
   useEffect(() => {
-    const fetchApplicationFromStorage = () => {
+    const checkExistingApplication = async () => {
       try {
-        const appsKey = "resumate_applications";
-        const existing = JSON.parse(localStorage.getItem(appsKey) || "[]");
-        // Only consider applications that belong to the current signed-in user.
-        const currentUser = JSON.parse(localStorage.getItem('resumate_user') || 'null');
-        if (!currentUser) {
-          // If no user is signed in, do not mark the job as applied.
-          setApplied(false);
-          setApplicationStatus(null);
-          setApplicationDate(null);
-          return;
+        // Try backend first if we have a job ID
+        if (job._id || job.id) {
+          const response = await api.application.getMyApplications();
+          const applications = response.applications || response || [];
+          const jobId = job._id || job.id;
+          const found = applications.find(a => 
+            (a.job?._id || a.job) === jobId || a.jobId === jobId
+          );
+          if (found) {
+            setApplied(true);
+            setApplicationStatus(found.status || "Pending");
+            setApplicationDate(found.createdAt || found.date || null);
+            return;
+          }
         }
-
-        const found = existing.find((a) => a.job === job.title && a.company === job.company && (a.userId === currentUser.id || a.userId === currentUser.email));
-        if (found) {
-          setApplied(true);
-          setApplicationStatus(found.status || "Pending");
-          setApplicationDate(found.date || null);
-        } else {
-          setApplied(false);
-          setApplicationStatus(null);
-          setApplicationDate(null);
-        }
+        // Fallback: not applied
+        setApplied(false);
+        setApplicationStatus(null);
+        setApplicationDate(null);
       } catch (e) {
-        // ignore parse errors
+        // If API fails, don't block the page
+        setApplied(false);
       }
     };
 
-    fetchApplicationFromStorage();
-  }, [job.title, job.company]);
+    checkExistingApplication();
+  }, [job.title, job.company, job._id, job.id]);
 
   const handleCancel = () => {
-    // require login to cancel
-    let user = null
-    try {
-      user = JSON.parse(localStorage.getItem('resumate_user') || 'null')
-      if (!user) {
-        navigate('/auth', { replace: true })
-        return
-      }
-    } catch (e) {
-      navigate('/auth', { replace: true })
-      return
-    }
-
-    try {
-      const appsKey = 'resumate_applications'
-      const existing = JSON.parse(localStorage.getItem(appsKey) || '[]')
-      // remove only applications that belong to this user (or match user id/email)
-      const filtered = existing.filter(a => {
-        if (a.job !== job.title || a.company !== job.company) return true
-        // keep the entry if it doesn't belong to current user
-        if (!a.userId) return true
-        return !(a.userId === user.id || a.userId === user.email)
-      })
-      localStorage.setItem(appsKey, JSON.stringify(filtered))
-    } catch (e) {
-      // ignore storage errors
-    }
-
-    // update local state
+    // For now, just reset local state. Backend doesn't support withdraw yet.
     setApplied(false)
     setApplicationStatus(null)
     setApplicationDate(null)

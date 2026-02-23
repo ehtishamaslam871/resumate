@@ -178,10 +178,18 @@ export default function RecruiterJobs() {
                     Edit
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (window.confirm('Delete this job?')) {
                         setDeleting(job._id);
-                        setTimeout(() => setDeleting(null), 1000);
+                        try {
+                          await jobAPI.deleteJob(job._id);
+                          setJobs(prev => prev.filter(j => j._id !== job._id));
+                        } catch (err) {
+                          console.error('Delete failed:', err);
+                          setError('Failed to delete job');
+                        } finally {
+                          setDeleting(null);
+                        }
                       }
                     }}
                     className="flex-1 px-4 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition flex items-center justify-center gap-2 font-semibold"

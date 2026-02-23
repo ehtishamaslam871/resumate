@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import api from "../services/api";
-import { Search, MapPin, Briefcase, DollarSign, Clock, AlertCircle, Loader, CheckCircle } from "lucide-react";
+import { Search, MapPin, Briefcase, DollarSign, Clock, AlertCircle, Loader, CheckCircle, Filter, ChevronRight } from "lucide-react";
 
 export default function Jobs() {
   const navigate = useNavigate();
@@ -186,7 +186,12 @@ export default function Jobs() {
           {/* Filters Sidebar */}
           <div className="lg:col-span-1">
             <div className="card-glass p-6 rounded-2xl sticky top-20">
-              <h3 className="text-xl font-bold mb-6 text-gray-100">Filters</h3>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center">
+                  <Filter className="w-4 h-4 text-neon-cyan" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-100">Filters</h3>
+              </div>
 
               {/* Search */}
               <div className="mb-6">
@@ -360,8 +365,14 @@ export default function Jobs() {
                         )}
                       </div>
 
-                      {/* Apply Button */}
-                      <div className="flex-shrink-0 flex gap-2">
+                      {/* Action Buttons */}
+                      <div className="flex-shrink-0 flex flex-col gap-2">
+                        <button
+                          onClick={() => navigate(`/job/${encodeURIComponent(job.title)}`, { state: { job } })}
+                          className="btn-ghost text-sm flex items-center gap-1 justify-center"
+                        >
+                          View Details <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleApply(job._id)}
                           disabled={appliedJobs.has(job._id) || applyingId === job._id}

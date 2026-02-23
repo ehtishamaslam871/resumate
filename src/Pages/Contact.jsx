@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Navbar from "../components/Navbar";
-import { Mail, MessageSquare, Clock, Zap } from "lucide-react";
+import { Mail, MessageSquare, Clock, Zap, User, Send, CheckCircle } from "lucide-react";
 
 const Contact = () => {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -42,8 +42,9 @@ const Contact = () => {
 
         {/* Success Message */}
         {submitted && (
-          <div className="mb-8 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-center">
-            ✅ Message sent! We'll get back to you within 24 hours.
+          <div className="mb-8 p-4 bg-green-500/15 border border-green-500/40 rounded-xl text-green-300 flex items-center justify-center gap-3 animate-fade-in-up">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+            <span>Message sent! We'll get back to you within 24 hours.</span>
           </div>
         )}
 
@@ -94,28 +95,34 @@ const Contact = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-gray-300 text-sm font-semibold mb-2">Your Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  placeholder="Enter your full name"
-                  className="input-modern"
-                  required
-                />
+                <div className="relative">
+                  <User className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    placeholder="Enter your full name"
+                    className="input-modern pl-10"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-gray-300 text-sm font-semibold mb-2">Email Address</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="you@example.com"
-                  className="input-modern"
-                  required
-                />
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="you@example.com"
+                    className="input-modern pl-10"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
@@ -144,8 +151,9 @@ const Contact = () => {
 
               <button
                 type="submit"
-                className="btn-primary w-full"
+                className="btn-primary w-full flex items-center justify-center gap-2"
               >
+                <Send className="w-4 h-4" />
                 Send Message
               </button>
             </form>
