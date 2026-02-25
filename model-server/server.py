@@ -1,14 +1,16 @@
 """
 ResuMate AI Model Server
 
-Resume Parsing: rule-based regex engine (instant, no LLM required)
-Generative tasks via Ollama (optional, used when available):
+All AI tasks powered by Ollama LLM (runs on Google Colab for performance):
+  - Resume Parsing (LLM-based extraction)
   - Resume Scoring
   - Interview Question Generation
   - Interview Answer Evaluation
   - Resume-Job Matching
   - AI Chat (Career Advisor)
   - Model Evaluation & Comparison (Academic)
+
+Fallback: regex-based resume parsing when Ollama is unavailable
 """
 
 from fastapi import FastAPI, HTTPException
@@ -20,9 +22,17 @@ import json
 import re
 import logging
 import time
+import os
 
-# Rule-based resume parser (instant, no LLM needed)
-from spacy_parser import parse_resume as regex_parse_resume
+# Load .env file if present (for OLLAMA_URL, PRIMARY_MODEL, etc.)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed, using system env vars
+
+# Fallback rule-based resume parser (used only when Ollama is unavailable)
+from resume_parser import parse_resume as regex_parse_resume
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -38,9 +48,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OLLAMA_URL = "http://localhost:11434"
-PRIMARY_MODEL = "llama3.2:1b"
-FALLBACK_MODEL = "llama3.2:3b"
+# Ollama URL — set to your Google Colab ngrok URL for remote inference
+# Example: http://localhost:11434 (local) or https://xxxx-xxxx.ngrok-free.app (Colab)
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "llama3.2:3b")
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "llama3.2:1b")
+# Resume parsing mode:
+#   - ollama: parse via Ollama LLM (default — runs on Colab for speed)
+#   - regex: fallback fast deterministic parsing
+RESUME_PARSER_MODE = os.getenv("RESUME_PARSER_MODE", "ollama").strip().lower()
 MAX_RETRIES = 2
 REQUEST_TIMEOUT = 300.0  # seconds — needs to be generous for 8GB RAM systems
 
@@ -353,12 +369,56 @@ async def run_text_task(prompt: str, task_name: str, max_tokens: int = 2048) -> 
 
 @app.post("/parse-resume")
 async def parse_resume(req: ParseResumeRequest):
-    """Parse resume using fast rule-based parser (instant, reliable) — no LLM needed."""
+    """Parse resume either with regex (fast) or via Ollama (LLM), based on RESUME_PARSER_MODE."""
     try:
         start_time = time.time()
-        text = req.resumeText[:15000]  # Regex can handle more text than LLM
 
-        # PRIMARY: Rule-based parser (instant, deterministic)
+        if RESUME_PARSER_MODE in ("ollama", "llm"):
+            # LLMs are slower and more token-limited; keep input shorter.
+            text = req.resumeText[:6000]
+            prompt = f"""You are an expert resume parser.
+
+Extract structured data from the resume text.
+
+Return ONLY a valid JSON object with EXACTLY these keys:
+{{
+  \"fullName\": \"\",
+  \"email\": \"\",
+  \"phone\": \"\",
+  \"location\": \"\",
+  \"summary\": \"\",
+  \"skills\": [\"\"],
+  \"experience\": [{{\"jobTitle\": \"\", \"company\": \"\", \"duration\": \"\", \"description\": \"\"}}],
+  \"education\": [{{\"degree\": \"\", \"school\": \"\", \"field\": \"\", \"year\": \"\"}}],
+  \"projects\": [\"\"],
+  \"certifications\": [\"\"],
+  \"score\": 0,
+  \"scoreBreakdown\": {{}},
+  \"strengths\": [\"\"],
+  \"improvements\": [\"\"]
+}}
+
+Rules:
+- If unknown, use empty string, empty list, empty object, or 0.
+- Do NOT include markdown or explanations.
+
+RESUME TEXT:
+{text}
+"""
+
+            result = await run_json_task(prompt, "parse-resume-ollama", max_tokens=1536)
+            elapsed = result.get("inference_time")
+            data = result.get("data", {})
+            if not isinstance(data, dict):
+                data = {}
+            return {
+                "data": data,
+                "model": result.get("model"),
+                "inference_time": elapsed,
+            }
+
+        # Default: Rule-based parser (instant, deterministic)
+        text = req.resumeText[:15000]  # Regex can handle more text than LLM
         data = regex_parse_resume(text)
         elapsed = round(time.time() - start_time, 3)
 
@@ -698,10 +758,10 @@ async def health():
 
     return {
         "status": "healthy",
-        "parser": "regex-nlp (always available)",
+        "parser": f"{RESUME_PARSER_MODE} (regex always available; ollama requires Ollama)",
         "ollama": ollama_status,
         "active_model": active_model,
-        "ram_note": "Parsing: instant. Generative tasks: Ollama when available.",
+        "ram_note": "Parsing: regex is instant; ollama parsing/generation depends on model + hardware.",
     }
 
 
@@ -709,8 +769,8 @@ async def health():
 async def root():
     return {
         "service": "ResuMate Model Server",
-        "parser": "regex-nlp (instant, no LLM)",
-        "generative": "Ollama (when available)",
+        "parser": f"resume parser mode: {RESUME_PARSER_MODE}",
+        "generative": f"Ollama via {OLLAMA_URL} (when available)",
         "endpoints": [
             "/generate", "/health", "/parse-resume", "/score-resume",
             "/generate-interview", "/evaluate-answer", "/interview-feedback",
@@ -722,6 +782,7 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     logger.info(f"Starting ResuMate Model Server")
-    logger.info(f"Resume parsing: regex-nlp (instant, no LLM needed)")
-    logger.info(f"Generative tasks: Ollama {PRIMARY_MODEL} (when available)")
+    logger.info(f"Ollama endpoint: {OLLAMA_URL}")
+    logger.info(f"Primary model: {PRIMARY_MODEL} | Fallback: {FALLBACK_MODEL}")
+    logger.info(f"Resume parsing mode: {RESUME_PARSER_MODE}")
     uvicorn.run(app, host="0.0.0.0", port=8000)
