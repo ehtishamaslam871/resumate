@@ -48,6 +48,10 @@ const userSchema = new mongoose.Schema({
   industry: String,
   website: String,
   
+  // Password Reset
+  resetPasswordCode: String,
+  resetPasswordExpires: Date,
+
   // Account Status
   isActive: { type: Boolean, default: true },
   isSuspended: { type: Boolean, default: false },
