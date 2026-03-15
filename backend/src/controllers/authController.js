@@ -1,7 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
+const { sendEmail } = require('../services/emailService');
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -183,6 +185,84 @@ exports.googleCallback = async (req, res) => {
   } catch (err) {
     console.error('Google callback error:', err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== FORGOT PASSWORD ====================
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      // Return same message to prevent email enumeration
+      return res.json({ message: 'If an account with that email exists, a reset code has been sent.' });
+    }
+
+    // Generate a 6-digit reset code
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+
+    // Store hashed code and expiry on user
+    user.resetPasswordCode = await bcrypt.hash(resetCode, 10);
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    await user.save();
+
+    // Send email with the reset code
+    try {
+      await sendEmail(user.email, 'passwordReset', {
+        userName: user.name,
+        resetCode,
+      });
+    } catch (emailErr) {
+      console.error('Failed to send password reset email:', emailErr);
+      // Still return success to avoid leaking whether email sending works
+    }
+
+    res.json({ message: 'If an account with that email exists, a reset code has been sent.' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ message: 'Failed to process password reset request' });
+  }
+};
+
+// ==================== RESET PASSWORD ====================
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ message: 'Email, reset code, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user || !user.resetPasswordCode) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+
+    // Compare the provided code with the hashed code
+    const isCodeValid = await bcrypt.compare(code, user.resetPasswordCode);
+    if (!isCodeValid) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = newPassword;
+    user.resetPasswordCode = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password has been reset successfully' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Failed to reset password' });
   }
 };
 

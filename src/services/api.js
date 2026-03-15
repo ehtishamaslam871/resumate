@@ -97,6 +97,28 @@ export const authAPI = {
     localStorage.removeItem('user')
     return Promise.resolve()
   },
+
+  /**
+   * Request a password reset code
+   * @param {string} email - User's email address
+   */
+  forgotPassword: (email) => {
+    return apiCall('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  },
+
+  /**
+   * Reset password with code
+   * @param {Object} data - { email, code, newPassword }
+   */
+  resetPassword: (data) => {
+    return apiCall('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
 }
 
 // ==================== RESUME ENDPOINTS ====================

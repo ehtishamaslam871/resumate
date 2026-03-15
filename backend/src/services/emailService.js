@@ -70,6 +70,20 @@ const emailTemplates = {
       <p>Best regards,<br>ResuMate Team</p>
     `,
   }),
+  passwordReset: (userName, resetCode) => ({
+    subject: 'Password Reset Code - ResuMate',
+    html: `
+      <h2>Password Reset Request</h2>
+      <p>Hi ${userName},</p>
+      <p>We received a request to reset your password. Use the code below to reset it:</p>
+      <div style="text-align: center; margin: 20px 0;">
+        <span style="font-size: 28px; font-weight: bold; letter-spacing: 8px; background: #f4f4f4; padding: 12px 24px; border-radius: 8px; display: inline-block;">${resetCode}</span>
+      </div>
+      <p>This code will expire in <strong>15 minutes</strong>.</p>
+      <p>If you did not request a password reset, please ignore this email.</p>
+      <p>Best regards,<br>ResuMate Team</p>
+    `,
+  }),
 };
 
 // Send email function
@@ -108,6 +122,12 @@ const sendEmail = async (to, emailType, data) => {
         break;
       case 'welcomeEmail':
         emailContent = emailTemplates.welcomeEmail(data.userName);
+        break;
+      case 'passwordReset':
+        emailContent = emailTemplates.passwordReset(
+          data.userName,
+          data.resetCode
+        );
         break;
       default:
         throw new Error('Invalid email type');

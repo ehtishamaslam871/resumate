@@ -1,64 +1,54 @@
 import React, { useState } from 'react'
-import { X, Mail, KeyRound, Lock, ArrowRight } from 'lucide-react'
+import { X, Mail, KeyRound, Lock, ArrowRight, Loader2 } from 'lucide-react'
+import { authAPI } from '../services/api'
 
 export default function ForgotPasswordModal({ initialEmail = '', onClose = () => {}, onSuccess = () => {} }) {
   const [email, setEmail] = useState(initialEmail)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(false)
   const [resetCodeSent, setResetCodeSent] = useState(false)
-  const [sentResetCode, setSentResetCode] = useState('')
   const [enteredResetCode, setEnteredResetCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
 
-  const genCode = () => Math.floor(100000 + Math.random() * 900000).toString()
-
-  const handleSendResetCode = () => {
+  const handleSendResetCode = async () => {
     setError('')
     setSuccess('')
     if (!email || !email.includes('@')) return setError('Please enter a valid email')
-    const USERS_KEY = 'resumate_users'
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-    const user = users.find(u => u.email === email)
-    if (!user) return setError('No account found for that email')
 
-    const code = genCode()
-    const CODES_KEY = 'resumate_reset_codes'
-    const codes = JSON.parse(localStorage.getItem(CODES_KEY) || '[]')
-    codes.push({ email: user.email, code, expires: Date.now() + 15 * 60 * 1000 })
-    localStorage.setItem(CODES_KEY, JSON.stringify(codes))
-    setSentResetCode(code)
-    setResetCodeSent(true)
-    setSuccess('Reset code sent (demo). Enter the code below to set a new password.')
+    setLoading(true)
+    try {
+      await authAPI.forgotPassword(email)
+      setResetCodeSent(true)
+      setSuccess('If an account exists with that email, a reset code has been sent. Please check your inbox.')
+    } catch (err) {
+      setError(err.message || 'Failed to send reset code. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     setError('')
     setSuccess('')
     if (!enteredResetCode) return setError('Please enter the reset code')
-    if (newPassword.length < 3) return setError('Password must be at least 3 characters')
+    if (newPassword.length < 6) return setError('Password must be at least 6 characters')
     if (newPassword !== confirmNewPassword) return setError('Passwords do not match')
 
-    const CODES_KEY = 'resumate_reset_codes'
-    const codes = JSON.parse(localStorage.getItem(CODES_KEY) || '[]')
-    const record = [...codes].reverse().find(c => c.email === email && c.code === enteredResetCode)
-    if (!record) return setError('Invalid or expired reset code')
-
-    const USERS_KEY = 'resumate_users'
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-    const idx = users.findIndex(u => u.email === email)
-    if (idx === -1) return setError('User not found')
-    users[idx].password = newPassword
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-
-    const remaining = codes.filter(c => !(c.email === email && c.code === enteredResetCode))
-    localStorage.setItem(CODES_KEY, JSON.stringify(remaining))
-
-    setSuccess('Password updated. Please sign in with your new password.')
-    onSuccess('Password updated. Please sign in with your new password.')
-    setTimeout(() => {
-      onClose()
-    }, 800)
+    setLoading(true)
+    try {
+      await authAPI.resetPassword({ email, code: enteredResetCode, newPassword })
+      setSuccess('Password updated. Please sign in with your new password.')
+      onSuccess('Password updated. Please sign in with your new password.')
+      setTimeout(() => {
+        onClose()
+      }, 800)
+    } catch (err) {
+      setError(err.message || 'Invalid or expired reset code. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -113,10 +103,10 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
             <button
               type="button"
               onClick={handleSendResetCode}
+              disabled={loading}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
-              Send Reset Code
-              <ArrowRight className="w-4 h-4" />
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Send Reset Code <ArrowRight className="w-4 h-4" /></>}
             </button>
           ) : (
             <>
@@ -134,7 +124,7 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
                 <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
                 <input
                   type="password"
-                  placeholder="New Password"
+                  placeholder="New Password (min 6 characters)"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="input-modern pl-10"
@@ -153,15 +143,11 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
               <button
                 type="button"
                 onClick={handleResetPassword}
-                className="btn-primary w-full"
+                disabled={loading}
+                className="btn-primary w-full flex items-center justify-center gap-2"
               >
-                Reset Password
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reset Password'}
               </button>
-
-              <div className="p-3 card-glass rounded-xl text-center">
-                <p className="text-xs text-gray-500 mb-1">Demo reset code:</p>
-                <p className="font-mono text-sm text-neon-cyan font-bold tracking-[0.3em]">{sentResetCode}</p>
-              </div>
             </>
           )}
 
