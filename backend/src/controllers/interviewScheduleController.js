@@ -157,8 +157,11 @@ exports.submitAnswer = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Get question
-    const question = interview.questions.find(q => q.questionId === questionId);
+    const parsedQuestionId = Number(questionId);
+    // Accept both string/number question ids and fallback to question index when possible
+    const question = interview.questions.find(
+      (q, idx) => q.questionId === parsedQuestionId || q.questionId === questionId || idx === parsedQuestionId - 1
+    );
     if (!question) return res.status(404).json({ message: 'Question not found' });
 
     console.log(`🤖 Evaluating answer for question ${questionId}`);
@@ -171,21 +174,23 @@ exports.submitAnswer = async (req, res) => {
     );
 
     // Store answer
+    const evaluation = evaluationResult.evaluation || evaluationResult.data || evaluationResult;
+
     const answerData = {
-      questionId,
+      questionId: question.questionId,
       question: question.question,
       answer,
-      score: evaluationResult.data?.score || 0,
-      feedback: evaluationResult.data?.feedback || '',
-      strengths: evaluationResult.data?.strengths || [],
-      improvements: evaluationResult.data?.improvements || [],
-      keywordsCovered: evaluationResult.data?.keywordsCovered || [],
-      keywordsMissed: evaluationResult.data?.keywordsMissed || []
+      score: evaluation?.score || 0,
+      feedback: evaluation?.feedback || '',
+      strengths: evaluation?.strengths || [],
+      improvements: evaluation?.improvements || [],
+      keywordsCovered: evaluation?.keywordsCovered || [],
+      keywordsMissed: evaluation?.keywordsMissed || []
     };
 
     interview.answers.push(answerData);
     interview.scores.push(answerData.score);
-    interview.currentQuestionIndex = questionId;
+    interview.currentQuestionIndex = interview.answers.length;
 
     // If all questions answered, mark as completed
     if (interview.answers.length === interview.questions.length) {
@@ -198,7 +203,7 @@ exports.submitAnswer = async (req, res) => {
         interview.scores
       );
 
-      interview.finalFeedback = feedbackResult.data || {
+      interview.finalFeedback = feedbackResult.feedback || feedbackResult.data || {
         overallScore: Math.round(interview.scores.reduce((a, b) => a + b, 0) / interview.scores.length),
         performanceLevel: 'To be determined',
         summary: 'Interview completed',
@@ -215,7 +220,7 @@ exports.submitAnswer = async (req, res) => {
       message: 'Answer recorded successfully',
       score: answerData.score,
       feedback: answerData.feedback,
-      nextQuestion: interview.questions[interview.currentQuestionIndex + 1] || null,
+      nextQuestion: interview.questions[interview.currentQuestionIndex] || null,
       progress: `${interview.answers.length}/${interview.questions.length}`
     });
   } catch (err) {

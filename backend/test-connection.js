@@ -1,15 +1,13 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 async function testConnection() {
   console.log('Testing MongoDB Connection...');
   console.log('URI:', process.env.MONGODB_URI.replace(/:[^:]*@/, ':***@'));
   
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ MongoDB Connected Successfully!');
     console.log('Connected to:', mongoose.connection.host);
     process.exit(0);

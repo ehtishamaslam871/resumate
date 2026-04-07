@@ -2,7 +2,16 @@ const mongoose = require('mongoose');
 
 const interviewSchema = new mongoose.Schema({
   candidate: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  job: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true },
+  job: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: false },
+
+  // Metadata
+  sessionType: { type: String, enum: ['job_application', 'mock'], default: 'job_application' },
+  jobTitle: String,
+  companyName: String,
+  recruiterName: String,
+  experienceLevel: String,
+  techStack: [String],
+  durationMinutes: { type: Number, default: 15 },
   
   // Questions
   questions: [{

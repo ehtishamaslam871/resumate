@@ -6,6 +6,17 @@ const Application = require('../models/Application');
 const Notification = require('../models/Notification');
 const modelService = require('../services/modelService');
 
+const normalizeTechStack = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 // ==================== START INTERVIEW ====================
 exports.startInterview = async (req, res) => {
   try {
@@ -43,7 +54,7 @@ exports.startInterview = async (req, res) => {
 
     // Format questions
     const formattedQuestions = (questionResult.questions || []).map((q, idx) => ({
-      questionId: `q_${idx}`,
+      questionId: idx + 1,
       question: q.question || q,
       difficulty: q.difficulty || 'medium',
       expectedKeywords: q.expectedKeywords || []
@@ -53,16 +64,11 @@ exports.startInterview = async (req, res) => {
 
     const interview = new Interview({
       candidate: req.user.id,
-      candidateId: req.user.id.toString(),
-      candidateName: user.name,
-      
+      sessionType: 'job_application',
       job: jobId,
-      jobId: jobId.toString(),
       jobTitle: job.title,
       companyName: job.company,
-      
-      application: applicationId || null,
-      
+      recruiterName: job.recruiterName || '',
       questions: formattedQuestions,
       currentQuestionIndex: 0,
       answers: [],
@@ -94,6 +100,99 @@ exports.startInterview = async (req, res) => {
     });
   } catch (err) {
     console.error('Start interview error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== CREATE MOCK INTERVIEW ====================
+exports.createMockInterview = async (req, res) => {
+  try {
+    const { role, techStack, experienceLevel, questionCount = 5 } = req.body;
+
+    if (!role || !String(role).trim()) {
+      return res.status(400).json({ message: 'Role is required' });
+    }
+
+    const stack = normalizeTechStack(techStack);
+    const promptRole = [String(role).trim(), experienceLevel ? `(${experienceLevel})` : '']
+      .filter(Boolean)
+      .join(' ');
+    const resumeContext = stack.length
+      ? `Skills: ${stack.join(', ')}`
+      : 'Skills: communication, problem solving, collaboration';
+
+    const questionResult = await modelService.generateInterviewQuestions(promptRole, resumeContext);
+    if (!questionResult.success) {
+      return res.status(400).json({ message: 'Failed to generate questions', error: questionResult.error });
+    }
+
+    const generated = (questionResult.questions || []).slice(0, Math.max(3, Number(questionCount) || 5));
+    const questions = generated.map((q, idx) => ({
+      questionId: idx + 1,
+      question: q.question || q,
+      category: q.category || 'general',
+      difficulty: q.difficulty || 'medium',
+      expectedKeywords: q.expectedKeywords || []
+    }));
+
+    const interview = new Interview({
+      candidate: req.user.id,
+      sessionType: 'mock',
+      jobTitle: String(role).trim(),
+      companyName: 'Mock Interview',
+      experienceLevel: experienceLevel || 'mid-level',
+      techStack: stack,
+      durationMinutes: 15,
+      questions,
+      status: 'pending',
+      currentQuestionIndex: 0,
+      answers: [],
+      scores: []
+    });
+
+    await interview.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Mock interview created successfully',
+      interview
+    });
+  } catch (err) {
+    console.error('Create mock interview error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== START PENDING INTERVIEW SESSION ====================
+exports.startInterviewSession = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    const interview = await Interview.findById(interviewId);
+    if (!interview) return res.status(404).json({ message: 'Interview not found' });
+
+    if (interview.candidate.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (interview.status === 'completed') {
+      return res.status(400).json({ message: 'Interview already completed' });
+    }
+
+    if (!interview.startedAt) {
+      interview.startedAt = new Date();
+    }
+    interview.status = 'in_progress';
+
+    await interview.save();
+
+    res.json({
+      success: true,
+      message: 'Interview session started',
+      interview
+    });
+  } catch (err) {
+    console.error('Start interview session error:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -247,7 +346,7 @@ exports.getUserInterviews = async (req, res) => {
 
     const interviews = await Interview.find(filter)
       .populate('job', 'title company')
-      .sort({ startedAt: -1 })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 

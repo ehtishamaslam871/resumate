@@ -21,6 +21,12 @@ router.get('/feedback/:interviewId', interviewController.getInterviewFeedback);
 // Get all interviews for the current user
 router.get('/my-interviews', interviewController.getUserInterviews);
 
+// Create a standalone mock interview session
+router.post('/mock/create', interviewController.createMockInterview);
+
+// Start a pending interview session
+router.post('/:interviewId/start-session', interviewController.startInterviewSession);
+
 // Get interview for candidate
 router.get('/:interviewId', interviewScheduleController.getCandidateInterview);
 

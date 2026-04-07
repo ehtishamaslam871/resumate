@@ -333,7 +333,6 @@ export default function Landing() {
             </div>
             <div className="border-t border-dark-800/60 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-gray-600 text-sm">&copy; {new Date().getFullYear()} ResuMate. All rights reserved.</p>
-              <p className="text-gray-600 text-sm">Built with <span className="text-red-400">&#9829;</span> for your success</p>
             </div>
           </div>
         </footer>

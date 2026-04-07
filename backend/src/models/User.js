@@ -16,8 +16,11 @@ const userSchema = new mongoose.Schema({
   },
   
   // OAuth
+  clerkId: { type: String, unique: true, sparse: true },
   googleId: String,
   googleEmail: String,
+  appleId: String,
+  appleEmail: String,
   
   // Profile
   profilePicture: String,
@@ -52,6 +55,10 @@ const userSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   isSuspended: { type: Boolean, default: false },
   emailVerified: { type: Boolean, default: false },
+
+  // Password reset
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
   
   // Tracking
   lastLogin: Date,

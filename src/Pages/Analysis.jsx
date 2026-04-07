@@ -173,6 +173,9 @@ Check back soon for detailed analysis.
     URL.revokeObjectURL(url);
   };
 
+  // Helper: Only show ATS Resume Builder button for job seekers
+  const isJobSeeker = resume.userRole === 'jobseeker' || (resume.user && resume.user.role === 'jobseeker');
+
   return (
     <div className="min-h-screen bg-dark-950 text-white">
       <Navbar />
@@ -653,6 +656,14 @@ Check back soon for detailed analysis.
                 onClick={() => navigate("/jobs")}
                 className="px-8 py-4 border-2 border-neon-cyan text-neon-cyan rounded-xl font-bold text-lg hover:bg-neon-cyan/10 transition">
                 Explore All Job Opportunities
+              </button>
+            </div>
+            {/* ATS Resume Builder Button */}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => navigate("/resume-builder")}
+                className="px-8 py-4 bg-gradient-to-r from-neon-cyan to-neon-purple text-dark-950 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-neon-cyan/50 transition transform hover:scale-105">
+                Create ATS-Friendly Resume
               </button>
             </div>
           </>

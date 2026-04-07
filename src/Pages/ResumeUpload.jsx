@@ -293,6 +293,13 @@ export default function ResumeUpload() {
                     Cancel
                   </button>
                 )}
+                {/* ATS Resume Builder Button */}
+                <button
+                  type="button"
+                  onClick={() => navigate("/resume-builder")}
+                  className="btn-primary w-full mt-2">
+                  Create ATS-Friendly Resume
+                </button>
               </div>
 
               {/* Security Note */}

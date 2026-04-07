@@ -40,9 +40,23 @@ const extractTextFromFile = async (filePath, fileType) => {
 
 // ==================== UPLOAD RESUME ====================
 exports.uploadResume = async (req, res) => {
+
   try {
     const file = req.file;
     if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+    // File type validation: only allow PDF, DOC, DOCX
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (!allowedTypes.includes(file.mimetype)) {
+      // Optionally, delete the uploaded file if not valid
+      const uploadedPath = path.join(__dirname, '../../uploads', file.filename);
+      if (fs.existsSync(uploadedPath)) fs.unlinkSync(uploadedPath);
+      return res.status(400).json({ message: 'This file is not a resume, please upload another one.' });
+    }
 
     const fileUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${file.filename}`;
     const filePath = path.join(__dirname, '../../uploads', file.filename);
@@ -68,6 +82,19 @@ exports.uploadResume = async (req, res) => {
       console.log('🤖 Extracting text from file...');
       const resumeText = await extractTextFromFile(filePath, file.mimetype);
       console.log('✅ Extracted text length:', resumeText.length);
+
+      // --- Content-based validation: check for resume-like content ---
+      const MIN_LENGTH = 400; // Minimum reasonable length for a resume
+      const RESUME_KEYWORDS = [
+        'experience', 'education', 'skills', 'summary', 'projects', 'certifications', 'work history', 'employment', 'professional', 'profile', 'objective'
+      ];
+      const lowerText = resumeText.toLowerCase();
+      const hasKeyword = RESUME_KEYWORDS.some(k => lowerText.includes(k));
+      if (resumeText.length < MIN_LENGTH || !hasKeyword) {
+        // Optionally, delete the uploaded file if not valid
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        return res.status(400).json({ message: 'This file does not appear to be a resume. Please upload a valid resume document.' });
+      }
       
       // ── Helper: ensure skills is always an array of individual strings ──
       const normalizeSkills = (raw) => {

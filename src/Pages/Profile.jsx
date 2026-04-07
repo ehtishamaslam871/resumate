@@ -311,13 +311,13 @@ export default function Profile() {
             ) : (
               <div className="space-y-3">
                 {interviewInvites.map((invite) => (
-                  <div key={invite.id} className="p-4 card-glass border border-neon-blue/30">
+                  <div key={invite._id || invite.id} className="p-4 card-glass border border-neon-blue/30">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div className="font-semibold text-neon-cyan">{invite.jobTitle}</div>
-                        <div className="text-sm text-gray-400">From: {invite.recruiterName}</div>
+                        <div className="font-semibold text-neon-cyan">{invite.jobTitle || invite.job?.title || 'Interview Session'}</div>
+                        <div className="text-sm text-gray-400">From: {invite.recruiterName || invite.companyName || invite.job?.company || 'ResuMate Recruiter'}</div>
                         <div className="text-sm text-gray-300 mt-1">
-                          <strong>Scheduled:</strong> {new Date(invite.scheduledDate).toLocaleDateString()} at {invite.scheduledTime}
+                          <strong>Scheduled:</strong> {new Date(invite.startedAt || invite.createdAt || Date.now()).toLocaleString()}
                         </div>
                       </div>
                       <div className="text-xs text-neon-blue/80 bg-neon-blue/10 px-2 py-1 rounded">Interview Scheduled</div>

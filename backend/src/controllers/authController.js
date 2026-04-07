@@ -1,10 +1,106 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const { createClerkClient, verifyToken } = require('@clerk/backend');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+};
+
+const getFrontendBaseUrl = () => {
+  return process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+};
+
+const getSafeUserPayload = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  phone: user.phone,
+});
+
+const normalizeRole = (roleValue) => {
+  if (!roleValue) return 'job_seeker';
+  const cleaned = String(roleValue).toLowerCase().replace(/[\s_-]/g, '');
+  if (cleaned === 'recruiter') return 'recruiter';
+  if (cleaned === 'admin') return 'admin';
+  return 'job_seeker';
+};
+
+const redirectWithOAuthSuccess = (res, user) => {
+  const token = generateToken(user);
+  const encodedUser = encodeURIComponent(Buffer.from(JSON.stringify(getSafeUserPayload(user))).toString('base64'));
+  const encodedToken = encodeURIComponent(token);
+  return res.redirect(`${getFrontendBaseUrl()}/auth/success?token=${encodedToken}&user=${encodedUser}`);
+};
+
+const createMailTransport = () => {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
+
+  if (smtpHost && smtpUser && smtpPass) {
+    return nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+  }
+
+  if (smtpUser && smtpPass) {
+    return nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+  }
+
+  return null;
+};
+
+const sendResetCodeEmail = async ({ to, name, code }) => {
+  const transporter = createMailTransport();
+  if (!transporter) {
+    throw new Error('SMTP is not configured');
+  }
+
+  const from = process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER;
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: 'ResuMate Password Reset Code',
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+        <h2 style="margin-bottom: 8px;">Password Reset Request</h2>
+        <p>Hi ${name || 'there'},</p>
+        <p>Use the code below to reset your password. This code expires in 15 minutes.</p>
+        <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; color: #06b6d4; margin: 18px 0;">${code}</p>
+        <p>If you did not request this, you can safely ignore this email.</p>
+        <p>ResuMate Team</p>
+      </div>
+    `,
+  });
+};
+
+const isStrongPassword = (password = '') => {
+  return (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(password)
+  );
 };
 
 // ==================== REGISTER ====================
@@ -15,15 +111,6 @@ exports.register = async (req, res) => {
     // Check if user exists
     let user = await User.findOne({ email: email.toLowerCase() });
     if (user) return res.status(409).json({ message: 'User already exists' });
-
-    // Normalize role to match enum: job_seeker, recruiter, admin
-    const normalizeRole = (r) => {
-      if (!r) return 'job_seeker';
-      const cleaned = r.toLowerCase().replace(/[\s_-]/g, '');
-      if (cleaned === 'recruiter') return 'recruiter';
-      if (cleaned === 'admin') return 'admin';
-      return 'job_seeker'; // jobseeker, job_seeker, Job Seeker → job_seeker
-    };
 
     // Create user (password will be hashed by pre-save hook)
     user = new User({
@@ -64,6 +151,84 @@ exports.register = async (req, res) => {
   }
 };
 
+// ==================== CLERK SYNC ====================
+exports.clerkSync = async (req, res) => {
+  try {
+    if (!process.env.CLERK_SECRET_KEY) {
+      return res.status(500).json({ message: 'Clerk is not configured on server' });
+    }
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token) {
+      return res.status(401).json({ message: 'Missing Clerk session token' });
+    }
+
+    let verified;
+    try {
+      verified = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    } catch (err) {
+      return res.status(401).json({ message: 'Invalid Clerk token' });
+    }
+
+    const clerkUserId = verified?.sub;
+    if (!clerkUserId) {
+      return res.status(401).json({ message: 'Invalid Clerk token payload' });
+    }
+
+    const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+
+    const primaryEmail =
+      clerkUser.emailAddresses?.find((e) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
+      clerkUser.emailAddresses?.[0]?.emailAddress;
+
+    const email = (primaryEmail || '').toLowerCase();
+    if (!email) {
+      return res.status(400).json({ message: 'Clerk account must have an email address' });
+    }
+
+    const fullName = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
+    const displayName = fullName || clerkUser.username || email.split('@')[0] || 'User';
+    const phone = clerkUser.phoneNumbers?.[0]?.phoneNumber || undefined;
+    const desiredRole = normalizeRole(req.body?.role);
+
+    let user = await User.findOne({ $or: [{ clerkId: clerkUserId }, { email }] });
+    if (!user) {
+      user = new User({
+        clerkId: clerkUserId,
+        name: displayName,
+        email,
+        role: desiredRole,
+        phone,
+        emailVerified: true,
+        isActive: true,
+      });
+    } else {
+      user.clerkId = user.clerkId || clerkUserId;
+      user.email = user.email || email;
+      user.name = user.name || displayName;
+      user.phone = user.phone || phone;
+      if (!user.role) user.role = desiredRole;
+      if (!user.emailVerified) user.emailVerified = true;
+    }
+
+    await user.save();
+
+    let profile = await Profile.findOne({ user: user._id });
+    if (!profile) {
+      profile = new Profile({ user: user._id, userId: user._id.toString() });
+      await profile.save();
+    }
+
+    const appToken = generateToken(user);
+    return res.json({ token: appToken, user: getSafeUserPayload(user) });
+  } catch (err) {
+    console.error('Clerk sync error:', err);
+    return res.status(500).json({ message: err.message || 'Unable to sync Clerk user' });
+  }
+};
+
 // ==================== LOGIN ====================
 exports.login = async (req, res) => {
   try {
@@ -99,6 +264,97 @@ exports.login = async (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== FORGOT PASSWORD ====================
+exports.requestPasswordReset = async (req, res) => {
+  try {
+    const email = (req.body?.email || '').toLowerCase().trim();
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    const genericMessage = 'If an account exists for this email, a reset code has been sent.';
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.json({ message: genericMessage });
+    }
+
+    const resetCode = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = crypto.createHash('sha256').update(resetCode).digest('hex');
+
+    user.resetPasswordToken = codeHash;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    try {
+      await sendResetCodeEmail({
+        to: user.email,
+        name: user.name,
+        code: resetCode,
+      });
+      return res.json({ message: genericMessage });
+    } catch (mailErr) {
+      console.error('Password reset email error:', mailErr.message);
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(500).json({ message: 'Unable to send reset code. Please try again later.' });
+      }
+
+      return res.json({
+        message: `${genericMessage} (Dev mode: using on-screen code)`,
+        devResetCode: resetCode,
+      });
+    }
+  } catch (err) {
+    console.error('Request password reset error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const email = (req.body?.email || '').toLowerCase().trim();
+    const code = (req.body?.code || '').trim();
+    const newPassword = req.body?.newPassword || '';
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ message: 'Email, code, and new password are required' });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 chars with uppercase, lowercase, number, and special character',
+      });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user || !user.resetPasswordToken || !user.resetPasswordExpires) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+
+    if (user.resetPasswordExpires.getTime() < Date.now()) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      return res.status(400).json({ message: 'Reset code expired. Request a new one.' });
+    }
+
+    const submittedHash = crypto.createHash('sha256').update(code).digest('hex');
+    if (submittedHash !== user.resetPasswordToken) {
+      return res.status(400).json({ message: 'Invalid or expired reset code' });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successful. Please sign in with your new password.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -175,14 +431,25 @@ exports.logout = async (req, res) => {
 // ==================== GOOGLE CALLBACK ====================
 exports.googleCallback = async (req, res) => {
   try {
-    const user = req.user;
-    const token = generateToken(user);
-    
-    // Redirect to frontend with token
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/success?token=${token}`);
+    return redirectWithOAuthSuccess(res, req.user);
   } catch (err) {
     console.error('Google callback error:', err);
     res.status(500).json({ message: err.message });
   }
+};
+
+// ==================== APPLE CALLBACK ====================
+exports.appleCallback = async (req, res) => {
+  try {
+    return redirectWithOAuthSuccess(res, req.user);
+  } catch (err) {
+    console.error('Apple callback error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== OAUTH FAILURE ====================
+exports.oauthFailure = async (req, res) => {
+  return res.redirect(`${getFrontendBaseUrl()}/auth?error=${encodeURIComponent('Social login failed. Please try again.')}`);
 };
 

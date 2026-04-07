@@ -70,6 +70,50 @@ export const authAPI = {
   },
 
   /**
+   * Exchange Clerk session token for app token + synced Mongo user
+   * @param {string} clerkToken
+   * @param {string} role
+   */
+  clerkSync: async (clerkToken, role = 'job_seeker') => {
+    const response = await fetch(`${API_BASE_URL}/auth/clerk/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${clerkToken}`,
+      },
+      body: JSON.stringify({ role }),
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to sync Clerk account')
+    }
+    return data
+  },
+
+  /**
+   * Request password reset code
+   * @param {string} email
+   */
+  forgotPassword: (email) => {
+    return apiCall('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  },
+
+  /**
+   * Reset password with email + code
+   * @param {Object} payload - { email, code, newPassword }
+   */
+  resetPassword: (payload) => {
+    return apiCall('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  /**
    * Get current user profile
    */
   getProfile: () => {
@@ -418,6 +462,27 @@ export const interviewAPI = {
   getUserInterviews: () => {
     return apiCall('/interview/my-interviews', {
       method: 'GET',
+    })
+  },
+
+  /**
+   * Create mock interview from role/stack details
+   * @param {Object} payload - role, techStack, experienceLevel, questionCount
+   */
+  createMockInterview: (payload) => {
+    return apiCall('/interview/mock/create', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  /**
+   * Start pending interview session
+   * @param {string} interviewId - Interview ID
+   */
+  startInterviewSession: (interviewId) => {
+    return apiCall(`/interview/${interviewId}/start-session`, {
+      method: 'POST',
     })
   },
 

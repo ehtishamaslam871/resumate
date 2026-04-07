@@ -411,6 +411,40 @@ RESUME TEXT:
             data = result.get("data", {})
             if not isinstance(data, dict):
                 data = {}
+
+            # --- POST-PROCESSING: Ensure sections are not mixed ---
+            def filter_skills(skills, experience):
+                # Remove any skill that looks like a job title or company from experience
+                exp_titles = set()
+                exp_companies = set()
+                if isinstance(experience, list):
+                    for exp in experience:
+                        if isinstance(exp, dict):
+                            exp_titles.add(str(exp.get("jobTitle", "")).strip().lower())
+                            exp_companies.add(str(exp.get("company", "")).strip().lower())
+                filtered = []
+                for skill in skills or []:
+                    s = str(skill).strip().lower()
+                    if s and s not in exp_titles and s not in exp_companies:
+                        filtered.append(skill)
+                return filtered
+
+            def filter_experience(experience, skills):
+                # Remove any experience entry that is just a skill
+                skill_set = set(str(s).strip().lower() for s in (skills or []))
+                filtered = []
+                for exp in experience or []:
+                    if isinstance(exp, dict):
+                        title = str(exp.get("jobTitle", "")).strip().lower()
+                        if title and title not in skill_set:
+                            filtered.append(exp)
+                return filtered
+
+            # Only run if both sections exist
+            if "skills" in data and "experience" in data:
+                data["skills"] = filter_skills(data["skills"], data["experience"])
+                data["experience"] = filter_experience(data["experience"], data["skills"])
+
             return {
                 "data": data,
                 "model": result.get("model"),

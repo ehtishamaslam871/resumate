@@ -17,6 +17,7 @@
   "author": "ResuMate",
   "license": "ISC",
   "dependencies": {
+    "@clerk/backend": "^3.2.4",
     "aws-sdk": "^2.1563.0",
     "axios": "^1.13.5",
     "bcryptjs": "^2.4.3",
@@ -32,6 +33,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.7",
     "passport": "^0.7.0",
+    "passport-apple": "^2.0.2",
     "passport-google-oauth20": "^2.0.0",
     "pdf-parse": "^1.1.1",
     "redis": "^4.6.11",

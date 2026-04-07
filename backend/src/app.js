@@ -19,6 +19,7 @@ const adminRoutes = require('./routes/admin');
 const searchRoutes = require('./routes/search');
 const matchingRoutes = require('./routes/matching');
 const modelRoutes = require('./routes/model');
+const resumeBuilderRoutes = require('./routes/resumeBuilder');
 
 const app = express();
 
@@ -77,6 +78,9 @@ app.use('/api/search', searchRoutes);
 
 // Local AI Model Server
 app.use('/api/model', modelRoutes);
+
+// Resume Builder
+app.use('/api/resume-builder', resumeBuilderRoutes);
 
 // ==================== HEALTH CHECK ====================
 app.get('/', (req, res) => res.json({ 

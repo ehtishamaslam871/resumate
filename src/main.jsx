@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ClerkProvider } from "@clerk/clerk-react";
 import "./index.css";
 import { migrateLocalStorageToMongo, isMigrationNeeded } from "./services/migration.js";
 
 // RBAC
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import { isAuthenticated, getUserRole } from "./config/permissions.js";
 
 // Import Pages
 import Landing from "./Pages/Landing.jsx";
@@ -28,6 +28,13 @@ import JobRecommendations from "./Pages/JobRecommendations.jsx";
 import Profile from "./Pages/Profile.jsx";
 import JobDetails from "./Pages/JobDetails.jsx";
 import Services from "./Pages/Services.jsx";
+import ResumeBuilder from "./Pages/ResumeBuilder.jsx";
+import OAuthSuccess from "./Pages/OAuthSuccess.jsx";
+import ClerkAuthPage from "./Pages/ClerkAuth.jsx";
+import ClerkSyncPage from "./Pages/ClerkSync.jsx";
+
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
 
 function HomeRedirect() {
   try {
@@ -72,6 +79,9 @@ function AppRoutes() {
       {/* Public Routes — no auth required */}
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/auth" element={<AuthRoute />} />
+      <Route path="/clerk-auth/*" element={<ClerkAuthPage />} />
+      <Route path="/clerk-sync" element={<ClerkSyncPage />} />
+      <Route path="/auth/success" element={<OAuthSuccess />} />
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/services" element={<Services />} />
@@ -79,6 +89,7 @@ function AppRoutes() {
 
       {/* Job Seeker Only */}
       <Route path="/upload" element={<ProtectedRoute requiredRole="jobseeker"><ResumeUpload /></ProtectedRoute>} />
+      <Route path="/resume-builder" element={<ProtectedRoute requiredRole="jobseeker"><ResumeBuilder /></ProtectedRoute>} />
       <Route path="/analysis/:resumeId" element={<ProtectedRoute requiredRole="jobseeker"><Analysis /></ProtectedRoute>} />
       <Route path="/jobs" element={<ProtectedRoute requiredRole="jobseeker"><Jobs /></ProtectedRoute>} />
       <Route path="/job/:title" element={<ProtectedRoute requiredRole="jobseeker"><JobDetails /></ProtectedRoute>} />
@@ -86,6 +97,7 @@ function AppRoutes() {
       <Route path="/interview-session/:interviewId" element={<ProtectedRoute requiredRole="jobseeker"><InterviewInterface /></ProtectedRoute>} />
       <Route path="/chatbot" element={<ProtectedRoute><InterviewBot /></ProtectedRoute>} />
       <Route path="/recommendations" element={<ProtectedRoute requiredRole="jobseeker"><JobRecommendations /></ProtectedRoute>} />
+
 
       {/* Recruiter Only */}
       <Route path="/recruiter" element={<ProtectedRoute requiredRole="recruiter"><RecruiterDashboard /></ProtectedRoute>} />
@@ -143,8 +155,18 @@ function AppWrapper() {
   );
 }
 
-createRoot(document.getElementById('root')).render(
+const appTree = (
   <React.StrictMode>
     <AppWrapper />
   </React.StrictMode>
+)
+
+createRoot(document.getElementById('root')).render(
+  CLERK_PUBLISHABLE_KEY ? (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      {appTree}
+    </ClerkProvider>
+  ) : (
+    appTree
+  )
 )

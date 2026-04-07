@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ChevronDown, User, Mail, Lock, Phone, Briefcase, Shield, UserCheck, Loader2 } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff, ChevronDown, User, Mail, Lock, Briefcase, Shield, UserCheck, Loader2, Apple, Chrome } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import ForgotPasswordModal from '../components/ForgotPasswordModal'
 import { authAPI, setAuthToken } from '../services/api'
@@ -46,98 +46,32 @@ export default function AuthModal() {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+  const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+  const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '')
 
-  // Helper: demo/social sign-in fallback when no real client ID is configured
-  const handleSocialLoginDemo = (provider) => {
-    // prompt for name/email to simulate an external provider response
-    const demoEmail = window.prompt(`Enter email to sign in with ${provider} (demo):`, '')
-    if (!demoEmail || !demoEmail.includes('@')) return setError('Valid email required for demo social sign-in')
-    const demoName = window.prompt('Enter display name (demo):', demoEmail.split('@')[0]) || ''
-
-    const USERS_KEY = 'resumate_users'
-    const CURRENT_USER_KEY = 'resumate_user'
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-
-    // find or create user
-    let user = users.find(u => u.email === demoEmail)
-    if (!user) {
-      user = { id: Date.now().toString(), name: demoName, email: demoEmail, password: '', role: role }
-      users.push(user)
-      localStorage.setItem(USERS_KEY, JSON.stringify(users))
-    }
-
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
-    // navigate based on chosen role (same as normal login)
-    if (role === 'recruiter') navigate('/recruiter')
-    else if (role === 'admin') navigate('/admin')
-    else navigate('/upload')
+  const handleOAuthSignIn = (provider) => {
+    setError('')
+    setSuccess('')
+    window.location.href = `${API_ORIGIN}/api/auth/${provider}`
   }
 
-  // Try to use Google Identity Services if a client ID is configured in localStorage under GOOGLE_CLIENT_ID
-  const handleGoogleSignIn = () => {
-    const clientId = localStorage.getItem('GOOGLE_CLIENT_ID') || window.__GOOGLE_CLIENT_ID__
-    if (!clientId) return handleSocialLoginDemo('Google')
-
-    // dynamically load Google Identity Services script then initialize
-    if (!window.google || !window.google.accounts) {
-      const script = document.createElement('script')
-      script.src = 'https://accounts.google.com/gsi/client'
-      script.async = true
-      script.defer = true
-      script.onload = () => initGoogle(clientId)
-      document.head.appendChild(script)
-    } else {
-      initGoogle(clientId)
-    }
+  const handleGoogleSignIn = () => handleOAuthSignIn('google')
+  const handleAppleSignIn = () => handleOAuthSignIn('apple')
+  const handleClerkSignIn = () => {
+    localStorage.setItem('pendingAuthRole', role)
+    navigate('/clerk-auth')
   }
 
-  const initGoogle = (clientId) => {
-    try {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: (resp) => {
-          // resp contains credential (JWT) — for demo we'll decode basic info if possible
-          // For full verification, exchange the credential on a backend. Here we fallback to demo flow.
-          // Attempt to decode name/email from JWT (not secure) — otherwise prompt demo fallback
-          try {
-            const payload = JSON.parse(atob(resp.credential.split('.')[1]))
-            const email = payload.email
-            const name = payload.name || email.split('@')[0]
-            // perform local sign-in/up
-            const USERS_KEY = 'resumate_users'
-            const CURRENT_USER_KEY = 'resumate_user'
-            const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-            let user = users.find(u => u.email === email)
-            if (!user) {
-              user = { id: Date.now().toString(), name, email, password: '', role }
-              users.push(user)
-              localStorage.setItem(USERS_KEY, JSON.stringify(users))
-            }
-            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
-            if (role === 'recruiter') navigate('/recruiter')
-            else if (role === 'admin') navigate('/admin')
-            else navigate('/upload')
-          } catch (err) {
-            console.warn('Google credential parse failed, falling back to demo prompt', err)
-            handleSocialLoginDemo('Google')
-          }
-        }
-      })
-
-      // render Google's button in a container if present, otherwise prompt the one-tap
-      const container = document.getElementById('google-signin-button')
-      if (container) {
-        // clear previous
-        container.innerHTML = ''
-        window.google.accounts.id.renderButton(container, { theme: 'filled_blue', size: 'large' })
-      } else {
-        window.google.accounts.id.prompt()
-      }
-    } catch (e) {
-      console.error('Google init error', e)
-      handleSocialLoginDemo('Google')
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const oauthError = params.get('error')
+    if (oauthError) {
+      setError(oauthError)
+      window.history.replaceState({}, document.title, location.pathname)
     }
-  }
+  }, [location.pathname, location.search])
 
   // Simple validation
   const validateForm = () => {
@@ -476,79 +410,117 @@ export default function AuthModal() {
               </div>
             )}
 
-            {/* Submit / Forgot-password area */}
-            {forgotMode ? (
-              // Render modal component when forgotMode is active
-              <ForgotPasswordModal
-                initialEmail={email}
-                onClose={() => setForgotMode(false)}
-                onSuccess={(msg) => setSuccess(msg)}
-              />
-            ) : (
-              <>
-                {/* Submit Button */}
+            {/* Social Login */}
+            <div className="mb-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px flex-1 bg-dark-700/70" />
+                <span className="text-xs uppercase tracking-wide text-gray-500">or continue with</span>
+                <div className="h-px flex-1 bg-dark-700/70" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary w-full mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  className="btn-secondary w-full flex items-center justify-center gap-2"
                 >
-                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {loading ? 'Please wait…' : isLogin ? 'Sign In' : 'Create Account'}
+                  <Chrome className="w-4 h-4" />
+                  Google
                 </button>
+                <button
+                  type="button"
+                  onClick={handleAppleSignIn}
+                  className="btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <Apple className="w-4 h-4" />
+                  Apple
+                </button>
+              </div>
+            </div>
 
-                <div className="flex items-center justify-between">
-                  {isLogin ? (
-                    <div className="space-y-3 w-full">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsLogin(false)
-                          setError('')
-                          setSuccess('')
-                        }}
-                        className="btn-secondary w-full"
-                      >
-                        Create Account
-                      </button>
+            {/* Submit / Forgot-password area */}
+            <>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {loading ? 'Please wait…' : isLogin ? 'Sign In' : 'Create Account'}
+              </button>
 
-                      <div className="flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setError('')
-                            setSuccess('')
-                          }}
-                          className="text-sm text-gray-400 hover:text-neon-cyan transition"
-                        >
-                          Or continue signing in
-                        </button>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={handleClerkSignIn}
+                  className="btn-secondary w-full mb-4"
+                  disabled={loading || !CLERK_KEY}
+                  title={!CLERK_KEY ? 'Clerk is not configured yet' : 'Sign in with Clerk'}
+                >
+                  {CLERK_KEY ? 'Sign In with Clerk' : 'Sign In with Clerk (Not Configured)'}
+                </button>
+              )}
 
-                        <button
-                          type="button"
-                          onClick={() => setForgotMode(true)}
-                          className="text-sm text-neon-cyan hover:text-neon-cyan/80 transition"
-                        >
-                          Forgot password?
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+              <div className="flex items-center justify-between">
+                {isLogin ? (
+                  <div className="space-y-3 w-full">
                     <button
                       type="button"
                       onClick={() => {
-                        setIsLogin(true)
+                        setIsLogin(false)
                         setError('')
                         setSuccess('')
                       }}
-                      className="text-neon-cyan hover:text-neon-cyan/80 text-sm transition"
+                      className="btn-secondary w-full"
                     >
-                      Already have an account? Sign in
+                      Create Account
                     </button>
-                  )}
-                </div>
-              </>
-            )}
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError('')
+                          setSuccess('')
+                        }}
+                        className="text-sm text-gray-400 hover:text-neon-cyan transition"
+                      >
+                        Or continue signing in
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(true)}
+                        className="text-sm text-neon-cyan hover:text-neon-cyan/80 transition"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(true)
+                      setError('')
+                      setSuccess('')
+                    }}
+                    className="text-neon-cyan hover:text-neon-cyan/80 text-sm transition"
+                  >
+                    Already have an account? Sign in
+                  </button>
+                )}
+              </div>
+            </>
           </form>
+
+          {forgotMode && (
+            <ForgotPasswordModal
+              initialEmail={email}
+              onClose={() => setForgotMode(false)}
+              onSuccess={(msg) => setSuccess(msg)}
+            />
+          )}
         </div>
       </div>
     </div>
