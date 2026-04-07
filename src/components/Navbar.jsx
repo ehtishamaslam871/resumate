@@ -95,7 +95,12 @@ export default function Navbar() {
     navigate("/upload");
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    if (path === '/interview') {
+      return location.pathname === '/interview' || location.pathname.startsWith('/interview/');
+    }
+    return location.pathname === path;
+  };
 
   const initials = user?.name
     ? user.name.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()

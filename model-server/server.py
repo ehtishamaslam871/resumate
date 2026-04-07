@@ -531,6 +531,13 @@ async def generate_interview(req: GenerateInterviewRequest):
 Skills to focus on: {skills_str}
 Difficulty: {req.difficulty}
 
+Important constraints:
+- This is for PRACTICE preparation, so make questions realistic and job-focused.
+- Questions MUST be tailored to the role, tech stack, and difficulty above.
+- Avoid generic questions unless explicitly adapted to the role context.
+- Prefer scenario-based and technical depth checks over generic textbook prompts.
+- Keep each question concise and interview-ready.
+
 Return ONLY a valid JSON object:
 {{
   "questions": [

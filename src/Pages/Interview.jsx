@@ -44,7 +44,10 @@ export default function Interview() {
       const response = await api.interview.getUserInterviews();
       setInterviews(response.interviews || []);
     } catch (err) {
-      setError(err.message || 'Failed to load interviews');
+      const message = /Failed to fetch/i.test(err.message || '')
+        ? 'Backend is offline or unreachable. Please start the backend server and try again.'
+        : (err.message || 'Failed to load interviews');
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -81,8 +84,11 @@ export default function Interview() {
     const pending = interviews.filter((item) => item.status === 'pending').length;
     const inProgress = interviews.filter((item) => item.status === 'in_progress').length;
     const completed = interviews.filter((item) => item.status === 'completed').length;
+    const totalQuestions = interviews.reduce((sum, item) => sum + (item.questions?.length || 0), 0);
+    const totalAnswered = interviews.reduce((sum, item) => sum + (item.answers?.length || 0), 0);
+    const overallProgress = totalQuestions > 0 ? Math.round((totalAnswered / totalQuestions) * 100) : 0;
 
-    return { pending, inProgress, completed };
+    return { pending, inProgress, completed, totalQuestions, totalAnswered, overallProgress };
   }, [interviews]);
 
   const handleCreateInterview = async (e) => {
@@ -177,6 +183,22 @@ export default function Interview() {
               </div>
             </div>
 
+            <div className="mb-8 card-glass rounded-2xl border border-dark-700 p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm text-gray-300 font-semibold">Overall Interview Progress</p>
+                <p className="text-sm font-bold text-neon-cyan">{stats.overallProgress}%</p>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full border border-dark-700 bg-dark-800/70">
+                <div
+                  className="h-full bg-gradient-to-r from-neon-cyan to-neon-purple"
+                  style={{ width: `${stats.overallProgress}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                {stats.totalAnswered} of {stats.totalQuestions} interview questions answered across all sessions.
+              </p>
+            </div>
+
             {interviews.length === 0 ? (
               <div className="card-glass rounded-2xl border border-dark-700 p-14 text-center">
                 <CalendarClock className="mx-auto mb-4 h-14 w-14 text-gray-500" />
@@ -222,7 +244,7 @@ export default function Interview() {
                         <p className="inline-flex items-center gap-2">
                           <Clock className="h-4 w-4 text-gray-500" /> {item.durationMinutes || 15} min
                         </p>
-                        <p>{done}/{total} questions answered</p>
+                        <p>{done}/{total} questions answered ({completion}%)</p>
                         <p>{item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Recently created'}</p>
                       </div>
 
@@ -235,19 +257,23 @@ export default function Interview() {
 
                       <div className="mt-4 flex flex-wrap gap-3">
                         <button
+                          onClick={() => navigate(`/interview-report/${item._id}`)}
+                          className={`px-5 py-2.5 text-sm font-bold rounded-lg transition ${
+                            item.status === 'completed'
+                              ? 'btn-secondary'
+                              : 'bg-dark-800/50 text-gray-500 border border-dark-700 cursor-not-allowed'
+                          }`}
+                          disabled={item.status !== 'completed'}
+                          title={item.status !== 'completed' ? 'Complete interview to unlock report' : 'View detailed report'}
+                        >
+                          View Report
+                        </button>
+                        <button
                           onClick={() => continueInterview(item._id)}
                           className="btn-primary px-5 py-2.5 text-sm font-bold"
                         >
                           {item.status === 'completed' ? 'Review Session' : item.status === 'in_progress' ? 'Continue Interview' : 'Begin Preparation'}
                         </button>
-                        {item.status === 'completed' && (
-                          <button
-                            onClick={() => navigate('/profile')}
-                            className="btn-secondary px-5 py-2.5 text-sm font-bold"
-                          >
-                            View in Profile
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -305,9 +331,9 @@ export default function Interview() {
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, experienceLevel: e.target.value }))}
                   className="input-modern"
                 >
-                  <option value="entry-level">Entry Level</option>
-                  <option value="mid-level">Mid Level</option>
-                  <option value="senior">Senior</option>
+                  <option value="entry-level">Low (Entry Level)</option>
+                  <option value="mid-level">Medium (Mid Level)</option>
+                  <option value="high">High (Senior/Lead)</option>
                 </select>
               </div>
 

@@ -15,6 +15,7 @@ import Analysis from "./Pages/Analysis.jsx";
 import Jobs from "./Pages/Jobs.jsx";
 import Interview from "./Pages/Interview.jsx";
 import InterviewInterface from "./Pages/InterviewInterface.jsx";
+import InterviewReport from "./Pages/InterviewReport.jsx";
 import AuthModal from "./Pages/Auth.jsx";
 import InterviewBot from "./Pages/chatbot.jsx";
 import Error404 from "./Pages/Error.jsx";
@@ -93,8 +94,10 @@ function AppRoutes() {
       <Route path="/analysis/:resumeId" element={<ProtectedRoute requiredRole="jobseeker"><Analysis /></ProtectedRoute>} />
       <Route path="/jobs" element={<ProtectedRoute requiredRole="jobseeker"><Jobs /></ProtectedRoute>} />
       <Route path="/job/:title" element={<ProtectedRoute requiredRole="jobseeker"><JobDetails /></ProtectedRoute>} />
+      <Route path="/interview" element={<ProtectedRoute requiredRole="jobseeker"><Interview /></ProtectedRoute>} />
       <Route path="/interview/:jobId" element={<ProtectedRoute requiredRole="jobseeker"><Interview /></ProtectedRoute>} />
       <Route path="/interview-session/:interviewId" element={<ProtectedRoute requiredRole="jobseeker"><InterviewInterface /></ProtectedRoute>} />
+      <Route path="/interview-report/:interviewId" element={<ProtectedRoute requiredRole="jobseeker"><InterviewReport /></ProtectedRoute>} />
       <Route path="/chatbot" element={<ProtectedRoute><InterviewBot /></ProtectedRoute>} />
       <Route path="/recommendations" element={<ProtectedRoute requiredRole="jobseeker"><JobRecommendations /></ProtectedRoute>} />
 

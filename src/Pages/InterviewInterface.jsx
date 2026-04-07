@@ -29,7 +29,6 @@ export default function InterviewInterface() {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState({});
   const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [sessionStarted, setSessionStarted] = useState(false);
 
   useEffect(() => {
     fetchInterview();
@@ -72,7 +71,6 @@ export default function InterviewInterface() {
         setStage('completed');
       } else if (loadedInterview.status === 'in_progress') {
         setStage('session');
-        setSessionStarted(true);
       } else {
         setStage('precheck');
       }
@@ -93,7 +91,6 @@ export default function InterviewInterface() {
       setSubmitting(true);
       setError('');
       await interviewAPI.startInterviewSession(interviewId);
-      setSessionStarted(true);
       setStage('session');
       await fetchInterview();
     } catch (err) {
@@ -113,7 +110,9 @@ export default function InterviewInterface() {
     try {
       setSubmitting(true);
       setError('');
-      const response = await interviewAPI.submitInterviewAnswer(interviewId, questionIndex, answer);
+      const normalizedQuestionId =
+        interview?.questions?.[questionIndex]?.questionId ?? questionIndex + 1;
+      const response = await interviewAPI.submitInterviewAnswer(interviewId, normalizedQuestionId, answer);
       if (response?.success) {
         setFeedback(prev => ({
           ...prev,
@@ -145,7 +144,8 @@ export default function InterviewInterface() {
 
   const answeredCount = useMemo(() => Object.keys(feedback).length, [feedback]);
   const totalQuestions = interview?.questions?.length || 0;
-  const progress = totalQuestions > 0 ? ((currentQuestion + 1) / totalQuestions) * 100 : 0;
+  const progress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+  const currentAnswerLength = (answers[currentQuestion] || '').length;
 
   if (loading) {
     return (
@@ -190,9 +190,9 @@ export default function InterviewInterface() {
       <div className="fixed top-0 right-0 -z-10 w-96 h-96 bg-gradient-to-br from-neon-cyan/5 to-neon-purple/5 rounded-full blur-3xl"></div>
       <div className="fixed bottom-0 left-0 -z-10 w-96 h-96 bg-gradient-to-tr from-neon-purple/5 to-neon-pink/5 rounded-full blur-3xl"></div>
 
-      <main className="max-w-4xl mx-auto px-6 py-12 relative z-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-8 relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 px-4 py-2 btn-secondary font-bold"
@@ -248,6 +248,13 @@ export default function InterviewInterface() {
                   Start Interview
                 </button>
               </div>
+
+              {cameraEnabled && (
+                <div className="mt-5 rounded-xl border border-neon-cyan/30 bg-dark-900/80 p-4">
+                  <p className="text-sm text-neon-cyan font-semibold mb-1">Camera Preview Enabled</p>
+                  <p className="text-xs text-gray-400">You are ready to continue with a live interview setup.</p>
+                </div>
+              )}
             </div>
 
             <div className="card-glass p-6 rounded-2xl border border-dark-700">
@@ -265,14 +272,17 @@ export default function InterviewInterface() {
 
         {stage === 'session' && (
           <>
-            <div className="mb-12">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-4xl font-bold text-gradient">Interview Session</h2>
-                <span className="badge-primary text-sm">
-                  {answeredCount}/{totalQuestions} answered
+            <div className="mb-6">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end mb-3">
+                <div>
+                  <h2 className="text-3xl font-bold text-gradient">Interview Session</h2>
+                  <p className="text-sm text-gray-400 mt-1">{interview.jobTitle || 'Practice Interview'} • {interview.companyName || 'ResuMate'}</p>
+                </div>
+                <span className="badge-primary text-sm h-fit">
+                  {answeredCount}/{totalQuestions} answered ({Math.round(progress)}%)
                 </span>
               </div>
-              <div className="w-full h-3 bg-dark-800/50 rounded-full overflow-hidden border border-dark-600">
+              <div className="w-full h-2.5 bg-dark-800/50 rounded-full overflow-hidden border border-dark-600">
                 <div
                   className="h-full bg-gradient-to-r from-neon-cyan to-neon-purple transition-all duration-300"
                   style={{ width: `${progress}%` }}
@@ -280,93 +290,106 @@ export default function InterviewInterface() {
               </div>
             </div>
 
-            <div className="card-glass p-10 rounded-2xl mb-10 border border-neon-cyan/20">
-              <div className="flex items-start gap-4 mb-8">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-bold flex-shrink-0 text-lg">
-                  {currentQuestion + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="text-gray-400 text-sm mb-2 font-semibold">Question {currentQuestion + 1} of {totalQuestions}</p>
-                  <h3 className="text-3xl font-bold text-gray-100">{getQuestionText(question)}</h3>
-                </div>
-              </div>
-
-              {!feedback[currentQuestion] ? (
-                <div className="space-y-6">
-                  <textarea
-                    value={answers[currentQuestion] || ''}
-                    onChange={(e) => handleAnswerChange(currentQuestion, e.target.value)}
-                    placeholder="Type your answer here..."
-                    className="input-modern w-full h-48 resize-none"
-                    rows="6"
-                  />
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400 font-medium">
-                      {answers[currentQuestion]?.length || 0} characters
-                    </span>
-                    <button
-                      onClick={() => handleSubmitAnswer(currentQuestion)}
-                      disabled={submitting || !answers[currentQuestion]?.trim()}
-                      className={`font-bold transition transform flex items-center gap-2 ${
-                        submitting
-                          ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed px-6 py-3 rounded-lg'
-                          : 'btn-primary px-8 py-3 hover:scale-105'
-                      }`}
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader className="w-5 h-5 animate-spin" />
-                          Evaluating...
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-5 h-5" />
-                          Submit Answer
-                        </>
-                      )}
-                    </button>
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+              <div className="card-glass p-5 sm:p-6 rounded-2xl border border-neon-cyan/20">
+                <div className="flex items-start gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center text-dark-950 font-bold flex-shrink-0 text-base">
+                    {currentQuestion + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-gray-400 text-xs sm:text-sm mb-1.5 font-semibold">Question {currentQuestion + 1} of {totalQuestions}</p>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-100 leading-tight">{getQuestionText(question)}</h3>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="p-6 bg-neon-green/10 border border-neon-green/50 rounded-xl flex items-start gap-4">
-                    <CheckCircle className="w-6 h-6 text-neon-green flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-neon-green text-lg mb-2">Answer captured</p>
-                      <p className="text-gray-300 text-base leading-relaxed">{feedback[currentQuestion]?.feedback}</p>
+
+                {!feedback[currentQuestion] ? (
+                  <div className="space-y-4">
+                    <textarea
+                      value={answers[currentQuestion] || ''}
+                      onChange={(e) => handleAnswerChange(currentQuestion, e.target.value)}
+                      placeholder="Type your answer here..."
+                      className="input-modern w-full h-32 sm:h-40 resize-none"
+                      rows="5"
+                    />
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <span className="text-xs sm:text-sm text-gray-400 font-medium">
+                        {currentAnswerLength} characters
+                      </span>
+                      <button
+                        onClick={() => handleSubmitAnswer(currentQuestion)}
+                        disabled={submitting || !answers[currentQuestion]?.trim()}
+                        className={`font-bold transition transform flex items-center gap-2 ${
+                          submitting
+                            ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed px-5 py-2.5 rounded-lg'
+                            : 'btn-primary px-6 py-2.5 hover:scale-105'
+                        }`}
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader className="w-4 h-4 animate-spin" />
+                            Evaluating...
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-4 h-4" />
+                            Submit Answer
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
-                  {currentQuestion < totalQuestions - 1 && (
-                    <button
-                      onClick={() => setCurrentQuestion(currentQuestion + 1)}
-                      className="w-full btn-primary py-3 font-bold text-lg"
-                    >
-                      Next Question {'>'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="card-glass p-8 rounded-2xl mb-10 border border-neon-cyan/20">
-              <h3 className="text-sm font-bold text-neon-cyan mb-6 uppercase tracking-wider">Question Navigator</h3>
-              <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
-                {interview.questions.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentQuestion(i)}
-                    className={`aspect-square rounded-lg font-bold text-sm transition transform hover:scale-110 ${
-                      currentQuestion === i
-                        ? 'bg-gradient-to-br from-neon-cyan to-neon-purple text-dark-950 ring-2 ring-neon-cyan/50'
-                        : feedback[i]
-                        ? 'bg-neon-green/20 text-neon-green border border-neon-green/50'
-                        : 'bg-dark-800/50 text-gray-400 border border-dark-600 hover:border-neon-cyan/30'
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-neon-green/10 border border-neon-green/50 rounded-xl flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-neon-green flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-neon-green mb-1">Answer captured</p>
+                        <p className="text-gray-300 text-sm leading-relaxed">{feedback[currentQuestion]?.feedback}</p>
+                      </div>
+                    </div>
+                    {currentQuestion < totalQuestions - 1 && (
+                      <button
+                        onClick={() => setCurrentQuestion(currentQuestion + 1)}
+                        className="w-full btn-primary py-2.5 font-bold"
+                      >
+                        Next Question {'>'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+
+              <aside className="space-y-4 xl:sticky xl:top-20">
+                <div className="card-glass p-4 rounded-2xl border border-neon-cyan/20">
+                  <h3 className="text-xs font-bold text-neon-cyan uppercase tracking-wider mb-3">Session Summary</h3>
+                  <div className="space-y-2 text-sm text-gray-300">
+                    <p>Answered: <span className="text-neon-green font-semibold">{answeredCount}</span></p>
+                    <p>Remaining: <span className="text-gray-100 font-semibold">{Math.max(totalQuestions - answeredCount, 0)}</span></p>
+                    <p>Current: <span className="text-neon-cyan font-semibold">Q{currentQuestion + 1}</span></p>
+                  </div>
+                </div>
+
+                <div className="card-glass p-4 rounded-2xl border border-neon-cyan/20">
+                  <h3 className="text-xs font-bold text-neon-cyan uppercase tracking-wider mb-3">Question Navigator</h3>
+                  <div className="grid grid-cols-5 xl:grid-cols-4 gap-2">
+                    {interview.questions.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentQuestion(i)}
+                        className={`aspect-square rounded-lg font-bold text-sm transition transform hover:scale-105 ${
+                          currentQuestion === i
+                            ? 'bg-gradient-to-br from-neon-cyan to-neon-purple text-dark-950 ring-2 ring-neon-cyan/50'
+                            : feedback[i]
+                            ? 'bg-neon-green/20 text-neon-green border border-neon-green/50'
+                            : 'bg-dark-800/50 text-gray-400 border border-dark-600 hover:border-neon-cyan/30'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </aside>
             </div>
           </>
         )}
@@ -381,6 +404,7 @@ export default function InterviewInterface() {
               Great work. Your responses have been recorded and feedback is available in your profile/interview history.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <button onClick={() => navigate(`/interview-report/${interviewId}`)} className="btn-secondary px-6 py-3 font-bold">View Report</button>
               <button onClick={() => navigate('/interview')} className="btn-primary px-6 py-3 font-bold">Back to Dashboard</button>
               <button onClick={() => navigate('/profile')} className="btn-secondary px-6 py-3 font-bold">Go to Profile</button>
             </div>

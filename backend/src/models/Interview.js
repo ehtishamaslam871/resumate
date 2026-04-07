@@ -19,7 +19,8 @@ const interviewSchema = new mongoose.Schema({
     question: String,
     category: String,
     difficulty: String,
-    expectedKeywords: [String]
+    expectedKeywords: [String],
+    sampleAnswer: String
   }],
   
   // Answers and feedback

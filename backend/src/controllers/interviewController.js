@@ -17,6 +17,120 @@ const normalizeTechStack = (value) => {
     .filter(Boolean);
 };
 
+const mapExperienceToDifficulty = (experienceLevel = '') => {
+  const normalized = String(experienceLevel).toLowerCase();
+  if (normalized.includes('high') || normalized.includes('senior') || normalized.includes('expert') || normalized.includes('lead')) {
+    return 'hard';
+  }
+  if (normalized.includes('mid') || normalized.includes('intermediate')) {
+    return 'medium';
+  }
+  if (normalized.includes('low') || normalized.includes('entry') || normalized.includes('junior') || normalized.includes('beginner')) {
+    return 'easy';
+  }
+  return 'mixed';
+};
+
+const buildSuggestedAnswerFallback = (question = '', expectedKeywords = []) => {
+  const keywords = Array.isArray(expectedKeywords)
+    ? expectedKeywords.map((k) => String(k).trim()).filter(Boolean).slice(0, 5)
+    : [];
+
+  const keywordsLine = keywords.length
+    ? `Mention concrete details around: ${keywords.join(', ')}.`
+    : 'Mention specific tools, decisions, and measurable impact.';
+
+  return `A strong answer should follow STAR: briefly set context, explain your actions and trade-offs, then quantify the result. ${keywordsLine}`;
+};
+
+const evaluateAnswerFallback = (question, answer, expectedKeywords = []) => {
+  const normalized = String(answer || '').toLowerCase();
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const keywords = Array.isArray(expectedKeywords) ? expectedKeywords.filter(Boolean) : [];
+  const covered = keywords.filter((k) => normalized.includes(String(k).toLowerCase()));
+  const missed = keywords.filter((k) => !covered.includes(k));
+
+  const coverage = keywords.length ? covered.length / keywords.length : (words.length >= 40 ? 0.75 : 0.55);
+  const depth = words.length >= 90 ? 0.9 : words.length >= 45 ? 0.7 : words.length >= 20 ? 0.5 : 0.3;
+  const score = Math.min(100, Math.max(35, Math.round((coverage * 0.65 + depth * 0.35) * 100)));
+
+  return {
+    score,
+    feedback: `Fallback evaluation: Your response has ${Math.round(coverage * 100)}% keyword coverage and ${words.length} words. Improve by using specific examples and measurable outcomes.`,
+    strengths: covered.length ? [`Covered important terms: ${covered.join(', ')}`] : ['Addressed the question directly.'],
+    improvements: missed.length ? [`Add details on: ${missed.join(', ')}`] : ['Quantify impact to make your answer stronger.'],
+    keywordsCovered: covered,
+    keywordsMissed: missed,
+  };
+};
+
+const formatQuestions = (rawQuestions = []) => {
+  return rawQuestions
+    .map((q, idx) => ({
+      questionId: idx + 1,
+      question: q?.question || q?.questionText || q?.text || String(q || '').trim(),
+      category: q?.category || q?.type || 'general',
+      difficulty: q?.difficulty || 'medium',
+      expectedKeywords: Array.isArray(q?.expectedKeywords) ? q.expectedKeywords : [],
+      sampleAnswer: q?.sampleAnswer || q?.idealAnswer || ''
+    }))
+    .filter((q) => q.question);
+};
+
+const buildFallbackQuestions = ({ role, techStack = [], experienceLevel = 'mid-level', count = 5 }) => {
+  const stack = normalizeTechStack(techStack).slice(0, 6);
+  const focusA = stack[0] || 'problem solving';
+  const focusB = stack[1] || 'system design';
+  const expLabel = String(experienceLevel || 'mid-level');
+
+  const bank = [
+    {
+      question: `For a ${expLabel} ${role} role, how would you position your strongest value in the first 90 seconds of an interview?`,
+      category: 'behavioral',
+      difficulty: 'easy',
+      expectedKeywords: ['experience', 'motivation', 'impact'],
+      sampleAnswer: 'I would briefly summarize my strongest role-relevant wins, quantify impact, and connect my experience to this role requirements in a concise story.'
+    },
+    {
+      question: `Walk me through a challenging ${role} project where you used ${focusA}. What trade-offs did you make and why?`,
+      category: 'technical',
+      difficulty: 'medium',
+      expectedKeywords: [focusA, 'trade-off', 'decision', 'result'],
+      sampleAnswer: `In one project, I used ${focusA} to deliver core functionality quickly, then balanced speed vs maintainability by extracting reusable modules and documenting constraints.`
+    },
+    {
+      question: `You are on-call for a ${role} feature built with ${focusB}. How would you debug a production issue step by step?`,
+      category: 'situational',
+      difficulty: 'medium',
+      expectedKeywords: [focusB, 'logs', 'hypothesis', 'root cause'],
+      sampleAnswer: 'I would first assess impact, collect logs/metrics, form hypotheses, reproduce the issue in a controlled environment, validate the root cause, then deploy and monitor a fix.'
+    },
+    {
+      question: 'Describe a time you received critical feedback. How did you respond and improve?',
+      category: 'behavioral',
+      difficulty: 'easy',
+      expectedKeywords: ['feedback', 'improvement', 'ownership'],
+      sampleAnswer: 'I acknowledged the feedback, clarified expectations, created an improvement plan with checkpoints, and demonstrated measurable improvement in the next delivery cycle.'
+    },
+    {
+      question: `For a ${expLabel} ${role}, if you had to improve an existing feature built with ${focusA}, what metrics would you track and why?`,
+      category: 'technical',
+      difficulty: 'hard',
+      expectedKeywords: [focusA, 'metrics', 'performance', 'quality'],
+      sampleAnswer: 'I would track user-facing latency, failure rate, conversion/engagement metrics, and maintainability indicators to ensure both product and engineering quality improve.'
+    },
+    {
+      question: 'How do you prioritize tasks when you have tight deadlines and multiple stakeholders?',
+      category: 'behavioral',
+      difficulty: 'medium',
+      expectedKeywords: ['priority', 'communication', 'deadline', 'planning'],
+      sampleAnswer: 'I align on business impact, classify tasks by urgency and dependency, communicate trade-offs early, and keep stakeholders updated through short planning cycles.'
+    },
+  ];
+
+  return formatQuestions(bank.slice(0, Math.max(3, Number(count) || 5)));
+};
+
 // ==================== START INTERVIEW ====================
 exports.startInterview = async (req, res) => {
   try {
@@ -41,24 +155,33 @@ exports.startInterview = async (req, res) => {
       return res.status(400).json({ message: 'Interview already in progress for this job' });
     }
 
-    // Generate interview questions using local Llama model
+    // Generate interview questions using local model, with template fallback
     console.log('🤖 Generating interview questions with local Llama model...');
+    const jobExperienceLevel = job.experienceLevel || job.level || job.seniority || 'mid-level';
     const questionResult = await modelService.generateInterviewQuestions(
       job.description || job.title,
-      resume.parsedText || 'Resume text not available'
+      resume.parsedText || 'Resume text not available',
+      {
+        skills: job.requiredSkills || [],
+        experienceLevel: jobExperienceLevel,
+        difficulty: mapExperienceToDifficulty(jobExperienceLevel),
+        count: 5,
+      }
     );
 
-    if (!questionResult.success) {
-      return res.status(400).json({ message: 'Failed to generate questions', error: questionResult.error });
-    }
+    let formattedQuestions = formatQuestions(questionResult.questions || []);
+    let questionSource = 'ai';
 
-    // Format questions
-    const formattedQuestions = (questionResult.questions || []).map((q, idx) => ({
-      questionId: idx + 1,
-      question: q.question || q,
-      difficulty: q.difficulty || 'medium',
-      expectedKeywords: q.expectedKeywords || []
-    }));
+    if (!questionResult.success || formattedQuestions.length === 0) {
+      questionSource = 'fallback';
+      formattedQuestions = buildFallbackQuestions({
+        role: job.title || 'Job Role',
+        techStack: job.requiredSkills || [],
+        experienceLevel: jobExperienceLevel,
+        count: 5,
+      });
+      console.warn('Interview question generation fell back to template set:', questionResult.error || 'empty AI response');
+    }
 
     const user = await User.findById(req.user.id);
 
@@ -96,7 +219,8 @@ exports.startInterview = async (req, res) => {
     res.status(201).json({
       message: 'Interview started successfully',
       interview,
-      firstQuestion: formattedQuestions[0]
+      firstQuestion: formattedQuestions[0],
+      questionSource
     });
   } catch (err) {
     console.error('Start interview error:', err);
@@ -114,33 +238,44 @@ exports.createMockInterview = async (req, res) => {
     }
 
     const stack = normalizeTechStack(techStack);
-    const promptRole = [String(role).trim(), experienceLevel ? `(${experienceLevel})` : '']
-      .filter(Boolean)
-      .join(' ');
+    const normalizedExperience = experienceLevel || 'mid-level';
+    const promptRole = [
+      `${String(role).trim()} interview practice`,
+      `Experience: ${normalizedExperience}`,
+      stack.length ? `Tech stack: ${stack.join(', ')}` : 'Tech stack: general',
+    ].join('. ');
     const resumeContext = stack.length
       ? `Skills: ${stack.join(', ')}`
       : 'Skills: communication, problem solving, collaboration';
 
-    const questionResult = await modelService.generateInterviewQuestions(promptRole, resumeContext);
-    if (!questionResult.success) {
-      return res.status(400).json({ message: 'Failed to generate questions', error: questionResult.error });
-    }
+    const questionResult = await modelService.generateInterviewQuestions(promptRole, resumeContext, {
+      skills: stack,
+      experienceLevel: normalizedExperience,
+      difficulty: mapExperienceToDifficulty(normalizedExperience),
+      count: Math.max(3, Number(questionCount) || 5),
+    });
+    let questions = formatQuestions(
+      (questionResult.questions || []).slice(0, Math.max(3, Number(questionCount) || 5))
+    );
+    let questionSource = 'ai';
 
-    const generated = (questionResult.questions || []).slice(0, Math.max(3, Number(questionCount) || 5));
-    const questions = generated.map((q, idx) => ({
-      questionId: idx + 1,
-      question: q.question || q,
-      category: q.category || 'general',
-      difficulty: q.difficulty || 'medium',
-      expectedKeywords: q.expectedKeywords || []
-    }));
+    if (!questionResult.success || questions.length === 0) {
+      questionSource = 'fallback';
+      questions = buildFallbackQuestions({
+        role: String(role).trim(),
+        techStack: stack,
+        experienceLevel: normalizedExperience,
+        count: questionCount,
+      });
+      console.warn('Mock interview question generation fell back to template set:', questionResult.error || 'empty AI response');
+    }
 
     const interview = new Interview({
       candidate: req.user.id,
       sessionType: 'mock',
       jobTitle: String(role).trim(),
       companyName: 'Mock Interview',
-      experienceLevel: experienceLevel || 'mid-level',
+      experienceLevel: normalizedExperience,
       techStack: stack,
       durationMinutes: 15,
       questions,
@@ -155,7 +290,8 @@ exports.createMockInterview = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Mock interview created successfully',
-      interview
+      interview,
+      questionSource
     });
   } catch (err) {
     console.error('Create mock interview error:', err);
@@ -227,11 +363,14 @@ exports.submitAnswer = async (req, res) => {
       currentQuestion.expectedKeywords || []
     );
 
-    if (!evaluationResult.success) {
-      return res.status(400).json({ message: 'Failed to evaluate answer', error: evaluationResult.error });
-    }
+    const evaluationFromModel = evaluationResult.evaluation || evaluationResult.data || evaluationResult;
+    const evaluation = (evaluationResult.success && typeof evaluationFromModel?.score === 'number')
+      ? evaluationFromModel
+      : evaluateAnswerFallback(currentQuestion.question, answer, currentQuestion.expectedKeywords || []);
 
-    const evaluation = evaluationResult.evaluation;
+    if (!evaluationResult.success) {
+      console.warn('⚠️ Model evaluation unavailable, using fallback scoring logic.');
+    }
 
     // Save answer
     interview.answers.push({
@@ -269,6 +408,16 @@ exports.submitAnswer = async (req, res) => {
       if (feedbackResult.success) {
         interview.finalFeedback = feedbackResult.feedback || '';
         interview.overallReview = feedbackResult.overallReview || '';
+      } else {
+        interview.finalFeedback = {
+          overallScore: avgScore,
+          performanceLevel: avgScore >= 80 ? 'strong' : avgScore >= 60 ? 'moderate' : 'needs_improvement',
+          summary: 'Final feedback generated using local fallback summary.',
+          topStrengths: ['Completed all interview questions.'],
+          areasForImprovement: ['Add more concrete, measurable examples.'],
+          recommendation: avgScore >= 75 ? 'hire' : avgScore >= 60 ? 'maybe' : 'reject',
+          detailedFeedback: 'Model server was unavailable during final feedback generation. This is a heuristic summary.'
+        };
       }
 
       // Update application status if exists
@@ -325,6 +474,21 @@ exports.getInterviewFeedback = async (req, res) => {
       scores: interview.scores,
       averageScore: interview.averageScore,
       recommendation: interview.recommendation,
+      reportQuestions: (interview.questions || []).map((q, idx) => {
+        const answer = (interview.answers || []).find((a) => a.questionId === q.questionId) || interview.answers?.[idx] || null;
+        return {
+          questionId: q.questionId,
+          question: q.question,
+          difficulty: q.difficulty,
+          expectedKeywords: q.expectedKeywords || [],
+          sampleAnswer: q.sampleAnswer || buildSuggestedAnswerFallback(q.question, q.expectedKeywords || []),
+          userAnswer: answer?.answer || '',
+          score: answer?.score ?? null,
+          feedback: answer?.feedback || '',
+          strengths: answer?.strengths || [],
+          improvements: answer?.improvements || [],
+        };
+      }),
       questionsAnswered: interview.answers.length,
       totalQuestions: interview.questions.length
     });

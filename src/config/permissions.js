@@ -10,12 +10,13 @@ export const ROLES = {
 export const ROLE_PERMISSIONS = {
   [ROLES.JOB_SEEKER]: {
     label: 'Job Seeker',
-    allowedRoutes: ['/upload', '/analysis', '/jobs', '/job', '/chatbot', '/profile', '/services', '/contact', '/about'],
+    allowedRoutes: ['/upload', '/analysis', '/jobs', '/job', '/interview', '/interview-session', '/chatbot', '/profile', '/services', '/contact', '/about'],
     blockedRoutes: ['/recruiter', '/admin'],
     navItems: [
       { name: 'Home', path: '/' },
       { name: 'Upload', path: '/upload', action: 'upload' },
       { name: 'Jobs', path: '/jobs' },
+      { name: 'Practice Interview', path: '/interview' },
       { name: 'Services', path: '/services' },
       { name: 'Contact', path: '/contact' },
       { name: 'About', path: '/about' },

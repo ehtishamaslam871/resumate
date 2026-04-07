@@ -5,6 +5,38 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const modelService = require('../services/modelService');
 
+const evaluateAnswerFallback = (question, answer, expectedKeywords = []) => {
+  const normalized = String(answer || '').toLowerCase();
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+  const keywords = Array.isArray(expectedKeywords) ? expectedKeywords.filter(Boolean) : [];
+  const keywordMatches = keywords.filter((k) => normalized.includes(String(k).toLowerCase()));
+  const missedKeywords = keywords.filter((k) => !keywordMatches.includes(k));
+
+  const keywordCoverage = keywords.length ? keywordMatches.length / keywords.length : (wordCount >= 40 ? 0.8 : 0.55);
+  const depthScore = wordCount >= 90 ? 0.9 : wordCount >= 45 ? 0.7 : wordCount >= 20 ? 0.5 : 0.3;
+  const score = Math.min(100, Math.max(35, Math.round((keywordCoverage * 0.65 + depthScore * 0.35) * 100)));
+
+  const strengths = [];
+  const improvements = [];
+
+  if (keywordMatches.length) strengths.push(`Covered key topics: ${keywordMatches.join(', ')}`);
+  if (wordCount >= 45) strengths.push('Provided a reasonably detailed response.');
+  if (!strengths.length) strengths.push('Attempted to address the question directly.');
+
+  if (missedKeywords.length) improvements.push(`Include more role-specific details around: ${missedKeywords.join(', ')}`);
+  if (wordCount < 30) improvements.push('Add more depth with specific examples and outcomes.');
+  if (!improvements.length) improvements.push('Add quantifiable impact to make your answer stronger.');
+
+  return {
+    score,
+    feedback: `Fallback evaluation: Your answer shows ${Math.round(keywordCoverage * 100)}% keyword coverage with ${wordCount} words. Focus on concrete examples and measurable impact for stronger interview performance.`,
+    strengths,
+    improvements,
+    keywordsCovered: keywordMatches,
+    keywordsMissed: missedKeywords,
+  };
+};
+
 // ==================== GENERATE INTERVIEW QUESTIONS ====================
 exports.generateInterviewQuestions = async (req, res) => {
   try {
@@ -43,10 +75,11 @@ exports.generateInterviewQuestions = async (req, res) => {
       job: jobId,
       questions: questions.map((q, idx) => ({
         questionId: idx + 1,
-        question: q.question,
-        category: q.category,
+        question: q.question || q.text || q.questionText,
+        category: q.category || q.type,
         difficulty: q.difficulty,
-        expectedKeywords: q.expectedKeywords || []
+        expectedKeywords: q.expectedKeywords || [],
+        sampleAnswer: q.sampleAnswer || q.idealAnswer || ''
       })),
       status: 'pending'
     });
@@ -160,21 +193,31 @@ exports.submitAnswer = async (req, res) => {
     const parsedQuestionId = Number(questionId);
     // Accept both string/number question ids and fallback to question index when possible
     const question = interview.questions.find(
-      (q, idx) => q.questionId === parsedQuestionId || q.questionId === questionId || idx === parsedQuestionId - 1
+      (q, idx) =>
+        q.questionId === parsedQuestionId ||
+        q.questionId === questionId ||
+        idx === parsedQuestionId - 1 ||
+        idx === parsedQuestionId
     );
     if (!question) return res.status(404).json({ message: 'Question not found' });
 
     console.log(`🤖 Evaluating answer for question ${questionId}`);
 
-    // Evaluate answer using AI
+    // Evaluate answer using AI (with local fallback)
     const evaluationResult = await modelService.evaluateAnswer(
       question.question,
       answer,
       question.expectedKeywords || []
     );
 
-    // Store answer
-    const evaluation = evaluationResult.evaluation || evaluationResult.data || evaluationResult;
+    const evaluationFromModel = evaluationResult.evaluation || evaluationResult.data || evaluationResult;
+    const evaluation = (evaluationResult.success && typeof evaluationFromModel?.score === 'number')
+      ? evaluationFromModel
+      : evaluateAnswerFallback(question.question, answer, question.expectedKeywords || []);
+
+    if (!evaluationResult.success) {
+      console.warn('⚠️ Model evaluation unavailable, using fallback scoring logic.');
+    }
 
     const answerData = {
       questionId: question.questionId,
@@ -293,7 +336,14 @@ exports.sendInterviewToCandidate = async (req, res) => {
       interview = new Interview({
         candidate: application.applicant,
         job: application.job,
-        questions: questionResult.data?.questions || [],
+        questions: (questionResult.questions || []).map((q, idx) => ({
+          questionId: idx + 1,
+          question: q.question || q.text || q.questionText,
+          category: q.category || q.type,
+          difficulty: q.difficulty,
+          expectedKeywords: q.expectedKeywords || [],
+          sampleAnswer: q.sampleAnswer || q.idealAnswer || ''
+        })),
         status: 'pending'
       });
       await interview.save();

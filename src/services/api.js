@@ -457,6 +457,16 @@ export const interviewAPI = {
   },
 
   /**
+   * Get interview report details for candidate (answers + expected answers)
+   * @param {string} interviewId - Interview ID
+   */
+  getInterviewReport: (interviewId) => {
+    return apiCall(`/interview/feedback/${interviewId}`, {
+      method: 'GET',
+    })
+  },
+
+  /**
    * Get all interview sessions for user
    */
   getUserInterviews: () => {
