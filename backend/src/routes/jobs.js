@@ -6,6 +6,7 @@ const jobController = require('../controllers/jobController');
 
 // Recruiter only (specific paths before parameterized)
 router.get('/recruiter/my-jobs', authMiddleware, roleMiddleware('recruiter'), jobController.getRecruiterJobs);
+router.post('/recruiter/seed-sample', authMiddleware, roleMiddleware('recruiter'), jobController.seedSampleJobs);
 
 // Public
 router.get('/', jobController.listJobs);

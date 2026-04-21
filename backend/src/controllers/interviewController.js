@@ -6,6 +6,9 @@ const Application = require('../models/Application');
 const Notification = require('../models/Notification');
 const modelService = require('../services/modelService');
 
+const DEFAULT_TOTAL_QUESTIONS = 10;
+const DEFAULT_TECHNICAL_QUESTIONS = 5;
+
 const normalizeTechStack = (value) => {
   if (!value) return [];
   if (Array.isArray(value)) {
@@ -77,33 +80,20 @@ const formatQuestions = (rawQuestions = []) => {
     .filter((q) => q.question);
 };
 
-const buildFallbackQuestions = ({ role, techStack = [], experienceLevel = 'mid-level', count = 5 }) => {
+const buildFallbackQuestionPools = ({ role, techStack = [], experienceLevel = 'mid-level' }) => {
   const stack = normalizeTechStack(techStack).slice(0, 6);
   const focusA = stack[0] || 'problem solving';
   const focusB = stack[1] || 'system design';
+  const focusC = stack[2] || 'testing';
   const expLabel = String(experienceLevel || 'mid-level');
 
-  const bank = [
+  const generalBank = [
     {
       question: `For a ${expLabel} ${role} role, how would you position your strongest value in the first 90 seconds of an interview?`,
       category: 'behavioral',
       difficulty: 'easy',
       expectedKeywords: ['experience', 'motivation', 'impact'],
       sampleAnswer: 'I would briefly summarize my strongest role-relevant wins, quantify impact, and connect my experience to this role requirements in a concise story.'
-    },
-    {
-      question: `Walk me through a challenging ${role} project where you used ${focusA}. What trade-offs did you make and why?`,
-      category: 'technical',
-      difficulty: 'medium',
-      expectedKeywords: [focusA, 'trade-off', 'decision', 'result'],
-      sampleAnswer: `In one project, I used ${focusA} to deliver core functionality quickly, then balanced speed vs maintainability by extracting reusable modules and documenting constraints.`
-    },
-    {
-      question: `You are on-call for a ${role} feature built with ${focusB}. How would you debug a production issue step by step?`,
-      category: 'situational',
-      difficulty: 'medium',
-      expectedKeywords: [focusB, 'logs', 'hypothesis', 'root cause'],
-      sampleAnswer: 'I would first assess impact, collect logs/metrics, form hypotheses, reproduce the issue in a controlled environment, validate the root cause, then deploy and monitor a fix.'
     },
     {
       question: 'Describe a time you received critical feedback. How did you respond and improve?',
@@ -113,22 +103,171 @@ const buildFallbackQuestions = ({ role, techStack = [], experienceLevel = 'mid-l
       sampleAnswer: 'I acknowledged the feedback, clarified expectations, created an improvement plan with checkpoints, and demonstrated measurable improvement in the next delivery cycle.'
     },
     {
-      question: `For a ${expLabel} ${role}, if you had to improve an existing feature built with ${focusA}, what metrics would you track and why?`,
-      category: 'technical',
-      difficulty: 'hard',
-      expectedKeywords: [focusA, 'metrics', 'performance', 'quality'],
-      sampleAnswer: 'I would track user-facing latency, failure rate, conversion/engagement metrics, and maintainability indicators to ensure both product and engineering quality improve.'
-    },
-    {
       question: 'How do you prioritize tasks when you have tight deadlines and multiple stakeholders?',
       category: 'behavioral',
       difficulty: 'medium',
       expectedKeywords: ['priority', 'communication', 'deadline', 'planning'],
       sampleAnswer: 'I align on business impact, classify tasks by urgency and dependency, communicate trade-offs early, and keep stakeholders updated through short planning cycles.'
     },
+    {
+      question: `Tell me about a disagreement on your team while delivering ${role} work. How did you resolve it?`,
+      category: 'behavioral',
+      difficulty: 'medium',
+      expectedKeywords: ['communication', 'alignment', 'ownership', 'result'],
+      sampleAnswer: 'I focused on shared goals, clarified constraints, proposed options with trade-offs, and aligned on the option that best balanced quality and timeline.'
+    },
+    {
+      question: `How do you break down ambiguous requirements for a ${role} assignment before implementation?`,
+      category: 'situational',
+      difficulty: 'medium',
+      expectedKeywords: ['requirements', 'assumptions', 'scope', 'validation'],
+      sampleAnswer: 'I clarify goals and constraints, write assumptions, define milestones, validate scope with stakeholders, and iterate with quick feedback loops.'
+    },
+    {
+      question: 'Describe a project where you had to balance speed and quality. What decision framework did you use?',
+      category: 'situational',
+      difficulty: 'medium',
+      expectedKeywords: ['trade-off', 'risk', 'priority', 'outcome'],
+      sampleAnswer: 'I identified must-haves versus nice-to-haves, measured risk impact, shipped incrementally, and used monitoring and rollback plans to protect quality.'
+    },
+    {
+      question: `What does success look like in your first 30-60-90 days as a ${role}?`,
+      category: 'general',
+      difficulty: 'easy',
+      expectedKeywords: ['ramp-up', 'impact', 'collaboration', 'goals'],
+      sampleAnswer: 'I focus on understanding systems and team practices first, then deliver scoped wins, and finally drive measurable impact on key project outcomes.'
+    },
   ];
 
-  return formatQuestions(bank.slice(0, Math.max(3, Number(count) || 5)));
+  const technicalBank = [
+    {
+      question: `Walk me through a challenging ${role} project where you used ${focusA}. What trade-offs did you make and why?`,
+      category: 'technical',
+      difficulty: 'medium',
+      expectedKeywords: [focusA, 'trade-off', 'decision', 'result'],
+      sampleAnswer: `In one project, I used ${focusA} to deliver core functionality quickly, then balanced speed vs maintainability by extracting reusable modules and documenting constraints.`
+    },
+    {
+      question: `You are on-call for a ${role} feature built with ${focusB}. How would you debug a production issue step by step?`,
+      category: 'technical',
+      difficulty: 'medium',
+      expectedKeywords: [focusB, 'logs', 'hypothesis', 'root cause'],
+      sampleAnswer: 'I would first assess impact, collect logs/metrics, form hypotheses, reproduce the issue in a controlled environment, validate the root cause, then deploy and monitor a fix.'
+    },
+    {
+      question: `For a ${expLabel} ${role}, if you had to improve an existing feature built with ${focusA}, what metrics would you track and why?`,
+      category: 'technical',
+      difficulty: 'hard',
+      expectedKeywords: [focusA, 'metrics', 'performance', 'quality'],
+      sampleAnswer: 'I would track user-facing latency, failure rate, conversion or engagement metrics, and maintainability indicators to ensure both product and engineering quality improve.'
+    },
+    {
+      question: `How would you design and validate an API contract for a ${role} feature using ${focusB}?`,
+      category: 'technical',
+      difficulty: 'medium',
+      expectedKeywords: ['api', 'contract', 'validation', focusB],
+      sampleAnswer: 'I define clear request and response schemas, include versioning and error models, validate with integration tests, and monitor contract compatibility in production.'
+    },
+    {
+      question: `What is your approach to testing a ${role} workflow that depends on ${focusC}?`,
+      category: 'technical',
+      difficulty: 'medium',
+      expectedKeywords: [focusC, 'unit tests', 'integration tests', 'edge cases'],
+      sampleAnswer: 'I combine unit tests for core logic, integration tests for dependencies, and edge-case coverage for failure paths, then automate in CI.'
+    },
+    {
+      question: `How would you optimize performance bottlenecks in a ${role} system built with ${focusA} and ${focusB}?`,
+      category: 'technical',
+      difficulty: 'hard',
+      expectedKeywords: ['profiling', 'latency', 'throughput', 'optimization'],
+      sampleAnswer: 'I profile first, target the highest-impact bottlenecks, apply incremental optimizations, and validate gains with before and after metrics.'
+    },
+  ];
+
+  return {
+    generalQuestions: formatQuestions(generalBank),
+    technicalQuestions: formatQuestions(technicalBank).map((q) => ({ ...q, category: 'technical' })),
+  };
+};
+
+const normalizeQuestionText = (value = '') => String(value || '').trim().toLowerCase();
+
+const isTechnicalQuestion = (question = {}, techStack = []) => {
+  const category = normalizeQuestionText(question.category || question.type || '');
+  const questionText = normalizeQuestionText(question.question || question.questionText || question.text || '');
+  const stack = normalizeTechStack(techStack).map((item) => item.toLowerCase());
+
+  const technicalHints = ['technical', 'coding', 'system', 'architecture', 'database', 'api', 'algorithm', 'debug', 'performance', 'security'];
+
+  if (technicalHints.some((hint) => category.includes(hint))) {
+    return true;
+  }
+
+  if (stack.some((item) => item.length > 1 && questionText.includes(item))) {
+    return true;
+  }
+
+  return technicalHints.some((hint) => questionText.includes(hint));
+};
+
+const mergeUniqueQuestions = (target = [], candidates = [], limit = Infinity) => {
+  const seen = new Set(target.map((q) => normalizeQuestionText(q.question)));
+
+  candidates.forEach((candidate) => {
+    if (target.length >= limit) return;
+
+    const normalizedQuestion = normalizeQuestionText(candidate?.question || candidate?.questionText || candidate?.text || '');
+    if (!normalizedQuestion || seen.has(normalizedQuestion)) return;
+
+    target.push({
+      ...candidate,
+      question: candidate.question || candidate.questionText || candidate.text || '',
+    });
+    seen.add(normalizedQuestion);
+  });
+
+  return target;
+};
+
+const composeInterviewQuestions = ({
+  rawQuestions = [],
+  role,
+  techStack = [],
+  experienceLevel = 'mid-level',
+  totalCount = DEFAULT_TOTAL_QUESTIONS,
+  technicalCount = DEFAULT_TECHNICAL_QUESTIONS,
+}) => {
+  const safeTotalCount = Math.max(4, Number(totalCount) || DEFAULT_TOTAL_QUESTIONS);
+  const safeTechnicalCount = Math.min(
+    Math.max(Number(technicalCount) || DEFAULT_TECHNICAL_QUESTIONS, 1),
+    safeTotalCount - 1
+  );
+  const safeGeneralCount = safeTotalCount - safeTechnicalCount;
+
+  const formatted = formatQuestions(rawQuestions);
+  const technicalFromAI = formatted.filter((q) => isTechnicalQuestion(q, techStack));
+  const generalFromAI = formatted.filter((q) => !isTechnicalQuestion(q, techStack));
+
+  const fallbackPools = buildFallbackQuestionPools({ role, techStack, experienceLevel });
+
+  const selectedGeneral = mergeUniqueQuestions([], generalFromAI, safeGeneralCount);
+  mergeUniqueQuestions(selectedGeneral, fallbackPools.generalQuestions, safeGeneralCount);
+
+  const selectedTechnical = mergeUniqueQuestions([], technicalFromAI, safeTechnicalCount);
+  mergeUniqueQuestions(selectedTechnical, fallbackPools.technicalQuestions, safeTechnicalCount);
+
+  const combined = [];
+  mergeUniqueQuestions(combined, selectedGeneral, safeGeneralCount);
+  mergeUniqueQuestions(combined, selectedTechnical, safeTotalCount);
+  mergeUniqueQuestions(combined, fallbackPools.generalQuestions, safeTotalCount);
+  mergeUniqueQuestions(combined, fallbackPools.technicalQuestions, safeTotalCount);
+
+  return combined
+    .slice(0, safeTotalCount)
+    .map((question, idx) => ({
+      ...question,
+      questionId: idx + 1,
+    }));
 };
 
 // ==================== START INTERVIEW ====================
@@ -158,6 +297,8 @@ exports.startInterview = async (req, res) => {
     // Generate interview questions using local model, with template fallback
     console.log('🤖 Generating interview questions with local Llama model...');
     const jobExperienceLevel = job.experienceLevel || job.level || job.seniority || 'mid-level';
+    const targetQuestionCount = DEFAULT_TOTAL_QUESTIONS;
+    const targetTechnicalCount = DEFAULT_TECHNICAL_QUESTIONS;
     const questionResult = await modelService.generateInterviewQuestions(
       job.description || job.title,
       resume.parsedText || 'Resume text not available',
@@ -165,21 +306,23 @@ exports.startInterview = async (req, res) => {
         skills: job.requiredSkills || [],
         experienceLevel: jobExperienceLevel,
         difficulty: mapExperienceToDifficulty(jobExperienceLevel),
-        count: 5,
+        count: targetQuestionCount,
       }
     );
 
-    let formattedQuestions = formatQuestions(questionResult.questions || []);
+    const rawGeneratedQuestions = questionResult.questions || [];
+    const formattedQuestions = composeInterviewQuestions({
+      rawQuestions: rawGeneratedQuestions,
+      role: job.title || 'Job Role',
+      techStack: job.requiredSkills || [],
+      experienceLevel: jobExperienceLevel,
+      totalCount: targetQuestionCount,
+      technicalCount: targetTechnicalCount,
+    });
     let questionSource = 'ai';
 
-    if (!questionResult.success || formattedQuestions.length === 0) {
+    if (!questionResult.success || rawGeneratedQuestions.length === 0) {
       questionSource = 'fallback';
-      formattedQuestions = buildFallbackQuestions({
-        role: job.title || 'Job Role',
-        techStack: job.requiredSkills || [],
-        experienceLevel: jobExperienceLevel,
-        count: 5,
-      });
       console.warn('Interview question generation fell back to template set:', questionResult.error || 'empty AI response');
     }
 
@@ -231,7 +374,7 @@ exports.startInterview = async (req, res) => {
 // ==================== CREATE MOCK INTERVIEW ====================
 exports.createMockInterview = async (req, res) => {
   try {
-    const { role, techStack, experienceLevel, questionCount = 5 } = req.body;
+    const { role, techStack, experienceLevel } = req.body;
 
     if (!role || !String(role).trim()) {
       return res.status(400).json({ message: 'Role is required' });
@@ -239,6 +382,8 @@ exports.createMockInterview = async (req, res) => {
 
     const stack = normalizeTechStack(techStack);
     const normalizedExperience = experienceLevel || 'mid-level';
+    const targetQuestionCount = DEFAULT_TOTAL_QUESTIONS;
+    const targetTechnicalCount = DEFAULT_TECHNICAL_QUESTIONS;
     const promptRole = [
       `${String(role).trim()} interview practice`,
       `Experience: ${normalizedExperience}`,
@@ -252,21 +397,21 @@ exports.createMockInterview = async (req, res) => {
       skills: stack,
       experienceLevel: normalizedExperience,
       difficulty: mapExperienceToDifficulty(normalizedExperience),
-      count: Math.max(3, Number(questionCount) || 5),
+      count: targetQuestionCount,
     });
-    let questions = formatQuestions(
-      (questionResult.questions || []).slice(0, Math.max(3, Number(questionCount) || 5))
-    );
+    const rawGeneratedQuestions = questionResult.questions || [];
+    const questions = composeInterviewQuestions({
+      rawQuestions: rawGeneratedQuestions,
+      role: String(role).trim(),
+      techStack: stack,
+      experienceLevel: normalizedExperience,
+      totalCount: targetQuestionCount,
+      technicalCount: targetTechnicalCount,
+    });
     let questionSource = 'ai';
 
-    if (!questionResult.success || questions.length === 0) {
+    if (!questionResult.success || rawGeneratedQuestions.length === 0) {
       questionSource = 'fallback';
-      questions = buildFallbackQuestions({
-        role: String(role).trim(),
-        techStack: stack,
-        experienceLevel: normalizedExperience,
-        count: questionCount,
-      });
       console.warn('Mock interview question generation fell back to template set:', questionResult.error || 'empty AI response');
     }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ChevronDown, User, Mail, Lock, Briefcase, Shield, UserCheck, Loader2, Apple, Chrome } from 'lucide-react'
+import { Eye, EyeOff, ChevronDown, User, Mail, Lock, Briefcase, UserCheck, Shield, Loader2 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import ForgotPasswordModal from '../components/ForgotPasswordModal'
 import { authAPI, setAuthToken } from '../services/api'
@@ -49,16 +49,6 @@ export default function AuthModal() {
   const location = useLocation()
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
   const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-  const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '')
-
-  const handleOAuthSignIn = (provider) => {
-    setError('')
-    setSuccess('')
-    window.location.href = `${API_ORIGIN}/api/auth/${provider}`
-  }
-
-  const handleGoogleSignIn = () => handleOAuthSignIn('google')
-  const handleAppleSignIn = () => handleOAuthSignIn('apple')
   const handleClerkSignIn = () => {
     localStorage.setItem('pendingAuthRole', role)
     navigate('/clerk-auth')
@@ -72,6 +62,13 @@ export default function AuthModal() {
       window.history.replaceState({}, document.title, location.pathname)
     }
   }, [location.pathname, location.search])
+
+  useEffect(() => {
+    // Admin can sign in, but cannot self-register through public flow.
+    if (!isLogin && role === 'admin') {
+      setRole('job_seeker')
+    }
+  }, [isLogin, role])
 
   // Simple validation
   const validateForm = () => {
@@ -211,11 +208,11 @@ export default function AuthModal() {
             {/* Role Selection */}
             <div className="mb-6">
               <label className="block text-gray-300 mb-3 font-semibold text-sm">I am a:</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className={`grid ${isLogin ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {[
                   { value: 'job_seeker', label: 'Job Seeker', icon: Briefcase },
                   { value: 'recruiter', label: 'Recruiter', icon: UserCheck },
-                  { value: 'admin', label: 'Admin', icon: Shield },
+                  ...(isLogin ? [{ value: 'admin', label: 'Admin', icon: Shield }] : []),
                 ].map(({ value, label, icon: Icon }) => (
                   <button
                     key={value}
@@ -232,6 +229,9 @@ export default function AuthModal() {
                   </button>
                 ))}
               </div>
+              {isLogin && role === 'admin' && (
+                <p className="text-xs text-gray-500 mt-2">Admin access is sign-in only. New admin accounts must be invited.</p>
+              )}
             </div>
 
             {/* Name Field (only for sign up) */}
@@ -410,33 +410,6 @@ export default function AuthModal() {
               </div>
             )}
 
-            {/* Social Login */}
-            <div className="mb-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-px flex-1 bg-dark-700/70" />
-                <span className="text-xs uppercase tracking-wide text-gray-500">or continue with</span>
-                <div className="h-px flex-1 bg-dark-700/70" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  className="btn-secondary w-full flex items-center justify-center gap-2"
-                >
-                  <Chrome className="w-4 h-4" />
-                  Google
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAppleSignIn}
-                  className="btn-secondary w-full flex items-center justify-center gap-2"
-                >
-                  <Apple className="w-4 h-4" />
-                  Apple
-                </button>
-              </div>
-            </div>
-
             {/* Submit / Forgot-password area */}
             <>
               {/* Submit Button */}
@@ -466,12 +439,14 @@ export default function AuthModal() {
                   <div className="space-y-3 w-full">
                     <button
                       type="button"
+                      disabled={loading || role === 'admin'}
                       onClick={() => {
                         setIsLogin(false)
                         setError('')
                         setSuccess('')
                       }}
-                      className="btn-secondary w-full"
+                      className="btn-secondary w-full disabled:opacity-45 disabled:cursor-not-allowed"
+                      title={role === 'admin' ? 'Admin accounts are invite-only' : 'Create a new account'}
                     >
                       Create Account
                     </button>

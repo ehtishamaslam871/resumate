@@ -9,7 +9,6 @@ const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 const roleOptions = [
   { value: 'job_seeker', label: 'Job Seeker' },
   { value: 'recruiter', label: 'Recruiter' },
-  { value: 'admin', label: 'Admin' },
 ]
 
 function ClerkAuthInner() {
@@ -144,7 +143,7 @@ function ClerkAuthInner() {
           {mode === 'signup' && (
             <div className="mb-4 space-y-2">
               <p className="text-xs uppercase tracking-wide text-gray-500">Choose account role</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {roleOptions.map((option) => (
                   <button
                     key={option.value}

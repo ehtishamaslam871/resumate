@@ -17,6 +17,8 @@ const notificationSchema = new mongoose.Schema({
       'application_status_updated',
       'job_match',
       'interview_scheduled',
+      'interview_invitation',
+      'interview_started',
       'message_received',
       'profile_viewed',
       'job_alert',

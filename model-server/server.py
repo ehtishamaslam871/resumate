@@ -16,7 +16,7 @@ Fallback: regex-based resume parsing when Ollama is unavailable
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 import httpx
 import json
 import re
@@ -48,17 +48,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ollama URL — set to your Google Colab ngrok URL for remote inference
-# Example: http://localhost:11434 (local) or https://xxxx-xxxx.ngrok-free.app (Colab)
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "llama3.2:3b")
-FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "llama3.2:1b")
+
+def normalize_ollama_url(raw_url: str) -> str:
+    """Extract a usable URL even if env value contains extra pasted text."""
+    candidate = (raw_url or "").strip().strip('"').strip("'")
+    if not candidate:
+        return "http://localhost:11434"
+
+    # Support pasted values like: NgrokTunnel: "https://..." -> "http://localhost:11434"
+    match = re.search(r"https?://[^\s\"']+", candidate)
+    if match:
+        return match.group(0).rstrip("/")
+
+    return candidate.rstrip("/")
+
+
+OLLAMA_URL = normalize_ollama_url(os.getenv("OLLAMA_URL", "http://localhost:11434"))
+PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "qwen2.5:14b")
+FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "qwen2.5:7b")
 # Resume parsing mode:
-#   - ollama: parse via Ollama LLM (default — runs on Colab for speed)
-#   - regex: fallback fast deterministic parsing
+
 RESUME_PARSER_MODE = os.getenv("RESUME_PARSER_MODE", "ollama").strip().lower()
 MAX_RETRIES = 2
 REQUEST_TIMEOUT = 300.0  # seconds — needs to be generous for 8GB RAM systems
+
+
+def get_ollama_headers() -> Dict[str, str]:
+    """Build headers for Ollama requests, including ngrok compatibility."""
+    headers = {"Accept": "application/json"}
+    if "ngrok" in OLLAMA_URL.lower():
+        # Avoid ngrok browser warning/interstitial responses for API calls.
+        headers["ngrok-skip-browser-warning"] = "1"
+    return headers
+
+
+def format_ollama_http_error(response: httpx.Response) -> str:
+    """Create actionable Ollama upstream error messages."""
+    if "ngrok" in OLLAMA_URL.lower() and response.status_code == 403:
+        return (
+            "Ollama tunnel returned 403 Forbidden. The ngrok URL may be expired or blocked. "
+            "Re-run Colab Cell 3 to create a fresh tunnel and update model-server/.env with the new OLLAMA_URL."
+        )
+
+    body_preview = (response.text or "").strip().replace("\n", " ")[:180]
+    if body_preview:
+        return f"Ollama request failed with HTTP {response.status_code}: {body_preview}"
+    return f"Ollama request failed with HTTP {response.status_code}"
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -176,11 +211,187 @@ def get_temperature_for_task(task_type: str, user_temp: Optional[float]) -> floa
     return temps.get(task_type, 0.5)
 
 
+def evaluate_answer_heuristic(question: str, answer: str, expected_keywords: Optional[List[str]] = None) -> dict:
+    """Local fallback answer evaluation when Ollama is unavailable."""
+    normalized = (answer or "").lower()
+    words = [w for w in re.split(r"\s+", normalized.strip()) if w]
+    word_count = len(words)
+
+    keywords = [str(k).strip() for k in (expected_keywords or []) if str(k).strip()]
+    matched = [k for k in keywords if str(k).lower() in normalized]
+    missed = [k for k in keywords if k not in matched]
+
+    coverage = (len(matched) / len(keywords)) if keywords else (0.75 if word_count >= 40 else 0.55)
+    depth = 0.9 if word_count >= 90 else 0.7 if word_count >= 45 else 0.5 if word_count >= 20 else 0.3
+    score = max(35, min(100, round((coverage * 0.65 + depth * 0.35) * 100)))
+
+    strengths = []
+    improvements = []
+
+    if matched:
+        strengths.append(f"Covered expected topics: {', '.join(matched)}")
+    if word_count >= 45:
+        strengths.append("Provided reasonable depth and structure.")
+    if not strengths:
+        strengths.append("Addressed the question directly.")
+
+    if missed:
+        improvements.append(f"Include more role-specific details around: {', '.join(missed)}")
+    if word_count < 30:
+        improvements.append("Add concrete examples and measurable outcomes.")
+    if not improvements:
+        improvements.append("Quantify impact to make your answer stronger.")
+
+    return {
+        "score": score,
+        "feedback": (
+            f"Fallback evaluation: {round(coverage * 100)}% keyword coverage, "
+            f"{word_count} words. Focus on concrete examples and clear outcomes."
+        ),
+        "strengths": strengths,
+        "improvements": improvements,
+        "keywordMatches": matched,
+        "missedKeywords": missed,
+    }
+
+
+def generate_interview_questions_fallback(
+    job_role: str,
+    skills: Optional[List[str]] = None,
+    difficulty: str = "mixed",
+    count: int = 5,
+) -> dict:
+    """Local fallback interview question generation when Ollama is unavailable."""
+    safe_count = max(3, min(int(count or 5), 12))
+    role = (job_role or "Software Engineer").strip()[:120]
+    skill_list = [str(s).strip() for s in (skills or []) if str(s).strip()]
+    if not skill_list:
+        skill_list = ["problem solving", "system design", "testing"]
+
+    focus_a = skill_list[0]
+    focus_b = skill_list[1] if len(skill_list) > 1 else "system design"
+    focus_c = skill_list[2] if len(skill_list) > 2 else "debugging"
+
+    technical_target = min(max(safe_count // 2, 1), 5)
+    general_target = max(safe_count - technical_target, 1)
+    level = (difficulty or "mixed").lower()
+    default_difficulty = "medium" if level == "mixed" else level
+
+    general_bank = [
+        {
+            "question": f"Tell me about your most relevant experience for a {role} role.",
+            "type": "general",
+            "difficulty": "easy",
+            "expectedKeywords": ["experience", "impact", "role"],
+            "sampleAnswer": "Summarize a relevant project, your ownership, and measurable outcomes.",
+        },
+        {
+            "question": "Describe a time you handled conflicting priorities. How did you decide what to do first?",
+            "type": "general",
+            "difficulty": "medium",
+            "expectedKeywords": ["priority", "stakeholders", "trade-offs"],
+            "sampleAnswer": "Explain your prioritization framework, communication approach, and result.",
+        },
+        {
+            "question": "How do you approach ambiguous requirements before implementation?",
+            "type": "general",
+            "difficulty": "medium",
+            "expectedKeywords": ["clarification", "assumptions", "scope"],
+            "sampleAnswer": "Describe requirement discovery, assumption validation, and iterative delivery.",
+        },
+        {
+            "question": "Describe a project setback and how you recovered from it.",
+            "type": "general",
+            "difficulty": "medium",
+            "expectedKeywords": ["ownership", "learning", "outcome"],
+            "sampleAnswer": "Share the issue, root cause, corrective action, and improved process.",
+        },
+        {
+            "question": "What does success look like in your first 90 days in this role?",
+            "type": "general",
+            "difficulty": "easy",
+            "expectedKeywords": ["onboarding", "impact", "collaboration"],
+            "sampleAnswer": "Outline ramp-up, quick wins, and measurable contribution milestones.",
+        },
+    ]
+
+    technical_bank = [
+        {
+            "question": f"Walk me through a project where you used {focus_a}. What design trade-offs did you make?",
+            "type": "technical",
+            "difficulty": default_difficulty,
+            "expectedKeywords": [focus_a, "trade-off", "architecture", "result"],
+            "sampleAnswer": "Explain architecture decisions, constraints, alternatives, and measurable outcomes.",
+        },
+        {
+            "question": f"How would you diagnose a production issue in a {role} system built with {focus_b}?",
+            "type": "technical",
+            "difficulty": "medium",
+            "expectedKeywords": [focus_b, "logs", "hypothesis", "root cause"],
+            "sampleAnswer": "Discuss impact triage, observability, reproduction, fix, and postmortem steps.",
+        },
+        {
+            "question": f"What testing strategy would you apply for a feature that relies heavily on {focus_c}?",
+            "type": "technical",
+            "difficulty": "medium",
+            "expectedKeywords": [focus_c, "unit tests", "integration", "edge cases"],
+            "sampleAnswer": "Cover unit/integration coverage, mock strategy, and regression prevention.",
+        },
+        {
+            "question": f"How would you optimize performance in a {role} workflow using {focus_a} and {focus_b}?",
+            "type": "technical",
+            "difficulty": "hard",
+            "expectedKeywords": ["profiling", "latency", "throughput", focus_a],
+            "sampleAnswer": "Explain profiling first, bottleneck prioritization, and measured optimization results.",
+        },
+        {
+            "question": f"How would you design an API contract for a {role} service and keep it backward-compatible?",
+            "type": "technical",
+            "difficulty": "medium",
+            "expectedKeywords": ["API", "versioning", "compatibility", "validation"],
+            "sampleAnswer": "Describe contract design, versioning policy, schema validation, and rollout plan.",
+        },
+    ]
+
+    selected = []
+    for q in general_bank[:general_target]:
+        selected.append(q)
+    for q in technical_bank[:technical_target]:
+        selected.append(q)
+
+    # If caller asks for more than available bank slices, cycle through banks without duplicates by text.
+    seen = set(item["question"].strip().lower() for item in selected)
+    merged_bank = general_bank + technical_bank
+    for q in merged_bank:
+        if len(selected) >= safe_count:
+            break
+        key = q["question"].strip().lower()
+        if key in seen:
+            continue
+        selected.append(q)
+        seen.add(key)
+
+    questions = [
+        {
+            "id": idx + 1,
+            "question": item["question"],
+            "type": item["type"],
+            "difficulty": item["difficulty"],
+            "expectedKeywords": item["expectedKeywords"],
+            "sampleAnswer": item["sampleAnswer"],
+        }
+        for idx, item in enumerate(selected[:safe_count])
+    ]
+
+    return {"questions": questions}
+
+
 async def get_available_model() -> str:
     """Check which model is available, pull if needed."""
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            resp = await client.get(f"{OLLAMA_URL}/api/tags")
+            resp = await client.get(f"{OLLAMA_URL}/api/tags", headers=get_ollama_headers())
+            resp.raise_for_status()
             models = [m["name"] for m in resp.json().get("models", [])]
 
             if PRIMARY_MODEL in models or f"{PRIMARY_MODEL}:latest" in models:
@@ -203,6 +414,12 @@ async def get_available_model() -> str:
                 return models[0]
 
             raise Exception("No models installed in Ollama")
+        except httpx.HTTPStatusError as exc:
+            raise Exception(format_ollama_http_error(exc.response))
+        except json.JSONDecodeError:
+            raise Exception(
+                "Ollama endpoint returned non-JSON data. Verify OLLAMA_URL points to a live Ollama tunnel."
+            )
         except httpx.ConnectError:
             raise Exception("Cannot connect to Ollama. Is it running?")
 
@@ -212,6 +429,7 @@ async def call_ollama(prompt: str, temperature: float, max_tokens: int, model: s
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
         response = await client.post(
             f"{OLLAMA_URL}/api/generate",
+            headers=get_ollama_headers(),
             json={
                 "model": model,
                 "prompt": prompt,
@@ -225,7 +443,10 @@ async def call_ollama(prompt: str, temperature: float, max_tokens: int, model: s
             }
         )
         response.raise_for_status()
-        return response.json().get("response", "")
+        try:
+            return response.json().get("response", "")
+        except json.JSONDecodeError as exc:
+            raise Exception("Ollama returned non-JSON output from /api/generate") from exc
 
 
 @app.post("/generate")
@@ -293,6 +514,10 @@ async def generate(req: PromptRequest):
                 last_error = "Cannot connect to Ollama"
                 logger.error(f"Attempt {attempt}: Connection failed")
                 break  # No point retrying if Ollama is down
+            except httpx.HTTPStatusError as exc:
+                last_error = format_ollama_http_error(exc.response)
+                logger.error(f"Attempt {attempt}: Upstream HTTP error: {last_error}")
+                break
 
         raise HTTPException(status_code=504, detail=last_error or "All retries failed")
 
@@ -306,7 +531,11 @@ async def generate(req: PromptRequest):
 ## ── Helper: run a prompt through the model and get parsed JSON ──
 async def run_json_task(prompt: str, task_name: str, max_tokens: int = 2048) -> dict:
     """Run a prompt expecting JSON output, with retries."""
-    model = await get_available_model()
+    try:
+        model = await get_available_model()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     temperature = get_temperature_for_task("json", None)
     logger.info(f"Task: {task_name} | Model: {model} | Temp: {temperature}")
 
@@ -348,13 +577,21 @@ async def run_json_task(prompt: str, task_name: str, max_tokens: int = 2048) -> 
             last_error = "Cannot connect to Ollama"
             logger.error(f"{task_name} attempt {attempt}: Connection failed")
             break
+        except httpx.HTTPStatusError as exc:
+            last_error = format_ollama_http_error(exc.response)
+            logger.error(f"{task_name} attempt {attempt}: Upstream HTTP error: {last_error}")
+            break
 
     raise HTTPException(status_code=504, detail=last_error or "All retries failed")
 
 
 async def run_text_task(prompt: str, task_name: str, max_tokens: int = 2048) -> dict:
     """Run a prompt expecting free-text output."""
-    model = await get_available_model()
+    try:
+        model = await get_available_model()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     temperature = get_temperature_for_task("text", None)
     start_time = time.time()
     raw_response = await call_ollama(prompt, temperature, max_tokens, model)
@@ -372,6 +609,7 @@ async def parse_resume(req: ParseResumeRequest):
     """Parse resume either with regex (fast) or via Ollama (LLM), based on RESUME_PARSER_MODE."""
     try:
         start_time = time.time()
+        parser_warning = None
 
         if RESUME_PARSER_MODE in ("ollama", "llm"):
             # LLMs are slower and more token-limited; keep input shorter.
@@ -401,55 +639,163 @@ Return ONLY a valid JSON object with EXACTLY these keys:
 Rules:
 - If unknown, use empty string, empty list, empty object, or 0.
 - Do NOT include markdown or explanations.
+- "skills" must contain ONLY 5 to 6 technical skills.
+- Exclude project names, company names, job titles, degree names, and section headers from "skills".
+- Each skill should be short (1 to 4 words).
 
 RESUME TEXT:
 {text}
 """
 
-            result = await run_json_task(prompt, "parse-resume-ollama", max_tokens=1536)
-            elapsed = result.get("inference_time")
-            data = result.get("data", {})
-            if not isinstance(data, dict):
-                data = {}
+            try:
+                result = await run_json_task(prompt, "parse-resume-ollama", max_tokens=1536)
+                elapsed = result.get("inference_time")
+                data = result.get("data", {})
+                if not isinstance(data, dict):
+                    data = {}
 
-            # --- POST-PROCESSING: Ensure sections are not mixed ---
-            def filter_skills(skills, experience):
-                # Remove any skill that looks like a job title or company from experience
-                exp_titles = set()
-                exp_companies = set()
-                if isinstance(experience, list):
-                    for exp in experience:
+                # --- POST-PROCESSING: Ensure sections are not mixed and cap skills ---
+                def build_blocked_terms(parsed):
+                    blocked = set()
+
+                    for project in parsed.get("projects") or []:
+                        p = str(project).strip().lower()
+                        if p:
+                            blocked.add(p)
+
+                    for exp in parsed.get("experience") or []:
                         if isinstance(exp, dict):
-                            exp_titles.add(str(exp.get("jobTitle", "")).strip().lower())
-                            exp_companies.add(str(exp.get("company", "")).strip().lower())
-                filtered = []
-                for skill in skills or []:
-                    s = str(skill).strip().lower()
-                    if s and s not in exp_titles and s not in exp_companies:
-                        filtered.append(skill)
-                return filtered
+                            title = str(exp.get("jobTitle", "")).strip().lower()
+                            company = str(exp.get("company", "")).strip().lower()
+                            if title:
+                                blocked.add(title)
+                            if company:
+                                blocked.add(company)
 
-            def filter_experience(experience, skills):
-                # Remove any experience entry that is just a skill
-                skill_set = set(str(s).strip().lower() for s in (skills or []))
-                filtered = []
-                for exp in experience or []:
-                    if isinstance(exp, dict):
-                        title = str(exp.get("jobTitle", "")).strip().lower()
-                        if title and title not in skill_set:
-                            filtered.append(exp)
-                return filtered
+                    for edu in parsed.get("education") or []:
+                        if isinstance(edu, dict):
+                            degree = str(edu.get("degree", "")).strip().lower()
+                            school = str(edu.get("school", "")).strip().lower()
+                            field = str(edu.get("field", "")).strip().lower()
+                            if degree:
+                                blocked.add(degree)
+                            if school:
+                                blocked.add(school)
+                            if field:
+                                blocked.add(field)
 
-            # Only run if both sections exist
-            if "skills" in data and "experience" in data:
-                data["skills"] = filter_skills(data["skills"], data["experience"])
-                data["experience"] = filter_experience(data["experience"], data["skills"])
+                    return blocked
 
-            return {
-                "data": data,
-                "model": result.get("model"),
-                "inference_time": elapsed,
-            }
+                def split_skill_candidates(raw_skill):
+                    text_skill = str(raw_skill or "").strip()
+                    if not text_skill:
+                        return []
+
+                    text_skill = re.sub(r"^[\-\*\s]+", "", text_skill)
+                    parts = [p.strip() for p in re.split(r"[,\n|;/]+", text_skill) if p.strip()]
+
+                    expanded = []
+                    for part in parts:
+                        if " and " in part and len(part.split()) <= 6:
+                            expanded.extend([x.strip() for x in part.split(" and ") if x.strip()])
+                        else:
+                            expanded.append(part)
+                    return expanded
+
+                def normalize_skill(skill):
+                    cleaned = re.sub(r"^[\s\-.,:;]+|[\s\-.,:;]+$", "", str(skill))
+                    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+                    return cleaned
+
+                def is_noise_skill(skill, blocked_terms):
+                    s = str(skill or "").strip().lower()
+                    if not s:
+                        return True
+                    if len(s) < 2 or len(s) > 35:
+                        return True
+                    if s in blocked_terms:
+                        return True
+                    if re.search(r"https?://|www\\.|@", s):
+                        return True
+                    if re.search(r"\b(19|20)\d{2}\b", s):
+                        return True
+                    if any(k in s for k in (
+                        "project", "experience", "intern", "objective", "summary",
+                        "education", "university", "college", "responsible",
+                        "developed", "designed", "implemented", "achievement",
+                        "certification", "award"
+                    )):
+                        return True
+                    token_count = len(re.findall(r"[a-z0-9+#./-]+", s))
+                    if token_count == 0 or token_count > 4:
+                        return True
+                    return False
+
+                def sanitize_skills(skills, fallback_skills, parsed):
+                    blocked_terms = build_blocked_terms(parsed)
+                    chosen = []
+                    seen = set()
+
+                    def add_candidates(raw):
+                        for candidate in split_skill_candidates(raw):
+                            normalized = normalize_skill(candidate)
+                            lowered = normalized.lower()
+                            if not normalized or lowered in seen:
+                                continue
+                            if is_noise_skill(normalized, blocked_terms):
+                                continue
+                            seen.add(lowered)
+                            chosen.append(normalized)
+                            if len(chosen) >= 6:
+                                return True
+                        return False
+
+                    for skill in skills or []:
+                        if add_candidates(skill):
+                            break
+
+                    if len(chosen) < 5:
+                        for skill in fallback_skills or []:
+                            if add_candidates(skill):
+                                break
+
+                    return chosen[:6]
+
+                def filter_experience(experience, skills):
+                    # Remove any experience entry that is just a skill
+                    skill_set = set(str(s).strip().lower() for s in (skills or []))
+                    filtered = []
+                    for exp in experience or []:
+                        if isinstance(exp, dict):
+                            title = str(exp.get("jobTitle", "")).strip().lower()
+                            if title and title not in skill_set:
+                                filtered.append(exp)
+                    return filtered
+
+                fallback_skills = []
+                try:
+                    fallback_data = regex_parse_resume(text)
+                    if isinstance(fallback_data, dict):
+                        fallback_skills = fallback_data.get("skills", [])
+                except Exception:
+                    fallback_skills = []
+
+                data["skills"] = sanitize_skills(data.get("skills", []), fallback_skills, data)
+
+                if "experience" in data:
+                    data["experience"] = filter_experience(data.get("experience", []), data["skills"])
+
+                return {
+                    "data": data,
+                    "model": result.get("model"),
+                    "inference_time": elapsed,
+                }
+            except HTTPException as exc:
+                parser_warning = str(exc.detail)
+                logger.warning("parse-resume fallback activated: %s", parser_warning)
+            except Exception as exc:
+                parser_warning = str(exc)
+                logger.warning("parse-resume fallback activated: %s", parser_warning)
 
         # Default: Rule-based parser (instant, deterministic)
         text = req.resumeText[:15000]  # Regex can handle more text than LLM
@@ -464,11 +810,15 @@ RESUME TEXT:
             f"score={data.get('score', 0)}"
         )
 
-        return {
+        response = {
             "data": data,
             "model": "regex-nlp",
             "inference_time": elapsed,
         }
+        if parser_warning:
+            response["warning"] = parser_warning
+
+        return response
     except Exception as e:
         logger.error(f"parse-resume error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -561,7 +911,23 @@ Respond with ONLY the JSON object."""
             "model": result.get("model"),
             "inference_time": result.get("inference_time"),
         }
-    except HTTPException:
+    except HTTPException as exc:
+        if exc.status_code in (503, 504):
+            logger.warning("generate-interview fallback activated: %s", exc.detail)
+            start_time = time.time()
+            fallback_data = generate_interview_questions_fallback(
+                job_role=req.jobRole,
+                skills=req.skills,
+                difficulty=req.difficulty or "mixed",
+                count=req.count or 5,
+            )
+            elapsed = round(time.time() - start_time, 4)
+            return {
+                "data": fallback_data,
+                "model": "fallback-heuristic",
+                "inference_time": elapsed,
+                "warning": str(exc.detail),
+            }
         raise
     except Exception as e:
         logger.error(f"generate-interview error: {str(e)}")
@@ -598,7 +964,19 @@ Respond with ONLY the JSON object."""
             "model": result.get("model"),
             "inference_time": result.get("inference_time"),
         }
-    except HTTPException:
+    except HTTPException as exc:
+        # Keep interview flow alive when Ollama tunnel is down/blocked.
+        if exc.status_code in (503, 504):
+            logger.warning("evaluate-answer fallback activated: %s", exc.detail)
+            start_time = time.time()
+            fallback = evaluate_answer_heuristic(req.question, req.userAnswer, req.expectedKeywords)
+            elapsed = round(time.time() - start_time, 4)
+            return {
+                "data": fallback,
+                "model": "fallback-heuristic",
+                "inference_time": elapsed,
+                "warning": str(exc.detail),
+            }
         raise
     except Exception as e:
         logger.error(f"evaluate-answer error: {str(e)}")
@@ -790,7 +1168,8 @@ async def health():
     active_model = None
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{OLLAMA_URL}/api/tags")
+            resp = await client.get(f"{OLLAMA_URL}/api/tags", headers=get_ollama_headers())
+            resp.raise_for_status()
             models = [m["name"] for m in resp.json().get("models", [])]
             ollama_status = {"running": True, "models": models}
             active_model = await get_available_model()

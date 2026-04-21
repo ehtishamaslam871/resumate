@@ -15,19 +15,19 @@ exports.authMiddleware = async (req, res, next) => {
   
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token verified, user ID:', payload.id);
+    console.log(' Token verified, user ID:', payload.id);
     
     const user = await User.findById(payload.id);
     if (!user) {
-      console.log('❌ User not found in DB');
+      console.log(' User not found in DB');
       return res.status(401).json({ message: 'Invalid token' });
     }
     
     req.user = { id: user._id, role: user.role };
-    console.log('✅ Auth successful for user:', user._id);
+    console.log(' Auth successful for user:', user._id);
     next();
   } catch (err) {
-    console.log('❌ Token verification failed:', err.message);
+    console.log(' Token verification failed:', err.message);
     res.status(401).json({ message: 'Unauthorized', error: err.message });
   }
 };

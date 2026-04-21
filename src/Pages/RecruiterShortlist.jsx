@@ -12,6 +12,7 @@ export default function RecruiterShortlist() {
   const [loading, setLoading] = useState(true);
   const [shortlisting, setShortlisting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showScheduling, setShowScheduling] = useState({});
   const [scheduleData, setScheduleData] = useState({});
 
@@ -23,10 +24,10 @@ export default function RecruiterShortlist() {
     try {
       setLoading(true);
       const jobResponse = await jobAPI.getJobById(jobId);
-      if (jobResponse.success) setJob(jobResponse.job);
+      setJob(jobResponse.job || jobResponse);
       
       const appResponse = await applicationAPI.getJobApplications(jobId);
-      if (appResponse.success) setCandidates(appResponse.applications || []);
+      setCandidates(appResponse.applications || []);
     } catch (err) {
       setError('Error loading candidates');
     } finally {
@@ -37,21 +38,10 @@ export default function RecruiterShortlist() {
   const handleAiShortlist = async () => {
     try {
       setShortlisting(true);
-      const response = await applicationAPI.aiShortlistApplications(jobId, { topN: 5, minScore: 60 });
-      if (response.success) {
-        const updatedCandidates = candidates.map(candidate => {
-          const aiResult = response.shortlistedCandidates?.find(c => c.applicationId === candidate._id);
-          return {
-            ...candidate,
-            aiScore: aiResult?.score || candidate.score,
-            aiReasoning: aiResult?.reasoning || '',
-            strengths: aiResult?.strengths || [],
-            gaps: aiResult?.gaps || [],
-            isShortlisted: aiResult ? true : false
-          };
-        });
-        setCandidates(updatedCandidates.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0)));
-      }
+      await applicationAPI.aiShortlistApplications(jobId, { topN: 5 });
+      await fetchJobAndCandidates();
+      setSuccess('AI shortlisting complete. Candidate list updated.');
+      setTimeout(() => setSuccess(''), 2500);
     } catch (err) {
       setError('Error running AI shortlisting');
     } finally {
@@ -59,19 +49,24 @@ export default function RecruiterShortlist() {
     }
   };
 
-  const handleScheduleInterview = async (candidateId) => {
-    const { date, link } = scheduleData[candidateId] || {};
-    if (!date || !link) {
+  const handleScheduleInterview = async (applicationId) => {
+    const { date, link } = scheduleData[applicationId] || {};
+    if (!date || !link?.trim()) {
       alert('Please fill in date and interview link');
       return;
     }
 
     try {
-      const response = await interviewAPI.scheduleInterview(candidateId, date, link);
+      const response = await interviewAPI.sendInterviewToCandidate(
+        applicationId,
+        new Date(date).toISOString(),
+        link.trim()
+      );
       if (response.success) {
         alert('Interview scheduled!');
-        setShowScheduling(prev => ({ ...prev, [candidateId]: false }));
-        setScheduleData(prev => ({ ...prev, [candidateId]: {} }));
+        setShowScheduling(prev => ({ ...prev, [applicationId]: false }));
+        setScheduleData(prev => ({ ...prev, [applicationId]: {} }));
+        await fetchJobAndCandidates();
       }
     } catch (err) {
       alert('Error scheduling interview');
@@ -141,6 +136,13 @@ export default function RecruiterShortlist() {
           </div>
         )}
 
+        {success && (
+          <div className="mb-8 p-6 bg-neon-green/20 border border-neon-green/50 rounded-2xl flex items-start gap-3">
+            <CheckCircle className="w-6 h-6 text-neon-green flex-shrink-0 mt-0.5" />
+            <p className="text-neon-green text-base">{success}</p>
+          </div>
+        )}
+
         {/* Candidates List */}
         {candidates.length === 0 ? (
           <div className="card-glass p-16 rounded-2xl text-center border border-neon-cyan/20">
@@ -166,11 +168,12 @@ export default function RecruiterShortlist() {
                   {/* Candidate Header */}
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-gray-100 mb-2">{candidate.candidateName || 'Anonymous'}</h3>
+                      <h3 className="text-2xl font-bold text-gray-100 mb-2">{candidate.applicantName || 'Anonymous'}</h3>
                       <div className="flex items-center gap-2 text-gray-400 text-base">
                         <Mail className="w-4 h-4 text-neon-cyan" />
-                        {candidate.candidateEmail || 'No email'}
+                        {candidate.applicantEmail || 'No email'}
                       </div>
+                      <div className="mt-2 text-xs text-gray-400">Status: {candidate.status || 'applied'}</div>
                     </div>
                     <div className={`${scoreColor} border px-6 py-3 rounded-lg text-center`}>
                       <div className="text-3xl font-bold">{Math.round(aiScore)}%</div>
@@ -208,14 +211,18 @@ export default function RecruiterShortlist() {
 
                   {/* Actions */}
                   <div className="flex gap-3">
-                    {!showScheduling[candidate._id] ? (
+                    {(candidate.status !== 'shortlisted' && candidate.status !== 'accepted') ? (
+                      <div className="w-full p-3 text-sm text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                        Candidate must be shortlisted before sending an interview call.
+                      </div>
+                    ) : !showScheduling[candidate._id] ? (
                       <>
                         <button
                           onClick={() => setShowScheduling(prev => ({ ...prev, [candidate._id]: true }))}
                           className="flex-1 px-6 py-3 btn-primary rounded-lg font-bold flex items-center justify-center gap-2 text-base"
                         >
                           <Calendar className="w-5 h-5" />
-                          Schedule Interview
+                          {candidate.interviewStatus === 'scheduled' ? 'Resend Interview' : 'Schedule Interview'}
                         </button>
                         <button
                           onClick={() => navigate(`/candidate/${candidate._id}`)}
@@ -227,7 +234,7 @@ export default function RecruiterShortlist() {
                     ) : (
                       <div className="w-full space-y-4 bg-dark-800/30 p-6 rounded-xl border border-dark-700/50">
                         <input
-                          type="date"
+                          type="datetime-local"
                           value={scheduleData[candidate._id]?.date || ''}
                           onChange={(e) => setScheduleData(prev => ({
                             ...prev,

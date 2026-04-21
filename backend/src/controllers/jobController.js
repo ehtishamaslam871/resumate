@@ -2,6 +2,113 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
+const SAMPLE_JOB_TEMPLATES = [
+  {
+    title: 'Frontend Developer (React)',
+    company: 'PixelForge Labs',
+    description: 'Build modern React interfaces, collaborate with designers, and ship accessible user experiences.',
+    requiredSkills: ['React', 'JavaScript', 'HTML', 'CSS', 'TypeScript'],
+    location: 'Remote',
+    locationType: 'remote',
+    salaryMin: 65000,
+    salaryMax: 85000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'mid-level'
+  },
+  {
+    title: 'MERN Stack Developer',
+    company: 'CodeSprint Solutions',
+    description: 'Develop full-stack features across React, Node.js, Express, and MongoDB for a hiring platform.',
+    requiredSkills: ['React', 'Node.js', 'Express', 'MongoDB', 'REST API'],
+    location: 'Bengaluru',
+    locationType: 'hybrid',
+    salaryMin: 75000,
+    salaryMax: 105000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'mid-level'
+  },
+  {
+    title: 'Backend Engineer (Node.js)',
+    company: 'DataPulse Systems',
+    description: 'Design scalable APIs, optimize MongoDB queries, and maintain backend services for production traffic.',
+    requiredSkills: ['Node.js', 'Express', 'MongoDB', 'JWT', 'Docker'],
+    location: 'Pune',
+    locationType: 'on-site',
+    salaryMin: 80000,
+    salaryMax: 120000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'senior'
+  },
+  {
+    title: 'Python Developer (Automation)',
+    company: 'AutoEdge Tech',
+    description: 'Automate data workflows, build Python services, and integrate with cloud APIs.',
+    requiredSkills: ['Python', 'FastAPI', 'SQL', 'Git', 'Automation'],
+    location: 'Hyderabad',
+    locationType: 'hybrid',
+    salaryMin: 70000,
+    salaryMax: 98000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'mid-level'
+  },
+  {
+    title: 'Data Analyst',
+    company: 'Insight Orbit',
+    description: 'Analyze hiring funnel metrics and deliver dashboards with actionable recommendations.',
+    requiredSkills: ['SQL', 'Python', 'Excel', 'Power BI', 'Statistics'],
+    location: 'Mumbai',
+    locationType: 'on-site',
+    salaryMin: 60000,
+    salaryMax: 88000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'entry-level'
+  },
+  {
+    title: 'QA Automation Engineer',
+    company: 'TestBridge',
+    description: 'Own test automation pipelines and improve release confidence across web applications.',
+    requiredSkills: ['Selenium', 'Java', 'API Testing', 'Postman', 'CI/CD'],
+    location: 'Chennai',
+    locationType: 'hybrid',
+    salaryMin: 65000,
+    salaryMax: 90000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'mid-level'
+  },
+  {
+    title: 'DevOps Engineer',
+    company: 'CloudNest',
+    description: 'Manage CI/CD pipelines, container orchestration, and cloud infrastructure automation.',
+    requiredSkills: ['AWS', 'Docker', 'Kubernetes', 'CI/CD', 'Linux'],
+    location: 'Remote',
+    locationType: 'remote',
+    salaryMin: 90000,
+    salaryMax: 135000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'senior'
+  },
+  {
+    title: 'UI/UX Designer',
+    company: 'CraftWave Studio',
+    description: 'Create high-quality product experiences, user flows, wireframes, and polished prototypes.',
+    requiredSkills: ['Figma', 'Wireframing', 'User Research', 'Prototyping', 'Design Systems'],
+    location: 'Delhi',
+    locationType: 'hybrid',
+    salaryMin: 55000,
+    salaryMax: 82000,
+    currency: 'USD',
+    jobType: 'full-time',
+    experienceLevel: 'mid-level'
+  }
+];
+
 // ==================== CREATE JOB ====================
 exports.createJob = async (req, res) => {
   try {
@@ -273,6 +380,70 @@ exports.getRecruiterJobs = async (req, res) => {
     });
   } catch (err) {
     console.error('Get recruiter jobs error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== SEED SAMPLE JOBS (RECRUITER) ====================
+exports.seedSampleJobs = async (req, res) => {
+  try {
+    const recruiter = await User.findById(req.user.id);
+    if (!recruiter || recruiter.role !== 'recruiter') {
+      return res.status(403).json({ message: 'Only recruiters can add sample jobs' });
+    }
+
+    const existingJobs = await Job.find(
+      {
+        recruiter: req.user.id,
+        title: { $in: SAMPLE_JOB_TEMPLATES.map((job) => job.title) }
+      },
+      'title company'
+    ).lean();
+
+    const existingKeys = new Set(
+      existingJobs.map((job) => `${job.title.toLowerCase()}::${String(job.company || '').toLowerCase()}`)
+    );
+
+    const sampleJobsToCreate = SAMPLE_JOB_TEMPLATES
+      .filter((template) => {
+        const templateKey = `${template.title.toLowerCase()}::${template.company.toLowerCase()}`;
+        return !existingKeys.has(templateKey);
+      })
+      .map((template) => ({
+        recruiter: req.user.id,
+        recruiterId: req.user.id.toString(),
+        recruiterName: recruiter.name,
+        recruiterEmail: recruiter.email,
+        ...template,
+        // Keep both fields populated for existing UI/API compatibility.
+        skills: template.requiredSkills,
+        status: 'open',
+        applicantCount: 0,
+        viewCount: 0,
+        applicationDeadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000)
+      }));
+
+    if (sampleJobsToCreate.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Sample jobs already exist for this recruiter',
+        createdCount: 0,
+        skippedCount: SAMPLE_JOB_TEMPLATES.length,
+        jobs: []
+      });
+    }
+
+    const createdJobs = await Job.insertMany(sampleJobsToCreate);
+
+    res.status(201).json({
+      success: true,
+      message: `${createdJobs.length} sample jobs added successfully`,
+      createdCount: createdJobs.length,
+      skippedCount: SAMPLE_JOB_TEMPLATES.length - createdJobs.length,
+      jobs: createdJobs
+    });
+  } catch (err) {
+    console.error('Seed sample jobs error:', err);
     res.status(500).json({ message: err.message });
   }
 };

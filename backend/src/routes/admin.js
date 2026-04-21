@@ -18,6 +18,11 @@ router.patch('/users/:userId/reset-password', adminController.resetUserPassword)
 router.patch('/users/:userId/change-role', adminController.changeUserRole);
 router.get('/users/:userId/activity', adminController.getUserActivity);
 
+// Admin Invite Management
+router.post('/invites/admin', adminController.createAdminInvite);
+router.get('/invites/admin', adminController.listAdminInvites);
+router.patch('/invites/admin/:inviteId/revoke', adminController.revokeAdminInvite);
+
 // Analytics
 router.get('/analytics/applications', adminController.getApplicationAnalytics);
 router.get('/analytics/job-market', adminController.getJobMarketAnalytics);

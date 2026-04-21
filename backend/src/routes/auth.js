@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const authController = require('../controllers/authController');
+const { authMiddleware } = require('../middlewares/auth');
 
 const ensureStrategy = (strategyName, label) => (req, res, next) => {
   if (!passport._strategy(strategyName)) {
@@ -14,6 +15,7 @@ const ensureStrategy = (strategyName, label) => (req, res, next) => {
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/clerk/sync', authController.clerkSync);
+router.post('/admin/claim', authMiddleware, authController.claimAdminInvite);
 router.post('/forgot-password', authController.requestPasswordReset);
 router.post('/reset-password', authController.resetPassword);
 router.get('/oauth/failure', authController.oauthFailure);

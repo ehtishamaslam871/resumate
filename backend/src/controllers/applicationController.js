@@ -94,13 +94,26 @@ exports.createApplication = async (req, res) => {
             user: job.recruiter,
             userId: job.recruiterId,
             type: 'application_received',
-            title: '⭐ Top Candidate Auto-Shortlisted',
+            title: 'Top Candidate Auto-Shortlisted',
             message: `${user.name} scored ${matchResult.totalScore}% match for ${job.title} and has been auto-shortlisted`,
             relatedApplication: application._id,
             relatedJob: jobId,
             relatedUser: req.user.id,
             actionUrl: '/recruiter',
             actionLabel: 'Review Candidate'
+          });
+
+          // Notify candidate that the application was shortlisted
+          await Notification.create({
+            user: req.user.id,
+            userId: req.user.id.toString(),
+            type: 'application_status_updated',
+            title: 'Application Shortlisted',
+            message: `Great news! Your application for ${job.title} was auto-shortlisted with a ${matchResult.totalScore}% match score.`,
+            relatedApplication: application._id,
+            relatedJob: jobId,
+            actionUrl: '/profile',
+            actionLabel: 'View Application'
           });
         } else {
           application.aiRecommendation = matchResult.totalScore >= 60 ? 'Good fit' : 'Average fit';
@@ -310,10 +323,17 @@ exports.getRecommendedJobs = async (req, res) => {
     // Check which jobs user has already applied to
     const appliedJobIds = (await Application.find({ applicant: jobSeekerID }).distinct('job')).map(id => id.toString());
 
-    const jobsWithApplicationStatus = recommendedJobs.map(job => ({
-      ...job,
-      hasApplied: appliedJobIds.includes(job._id.toString())
-    }));
+    const jobsWithApplicationStatus = recommendedJobs.map(job => {
+      const matchData = job.matchData || {};
+      return {
+        ...job,
+        matchScore: matchData.totalScore || 0,
+        breakdown: matchData.breakdown || { skills: 0, experience: 0, location: 0 },
+        matchedSkills: matchData.matchedSkills || [],
+        missingSkills: matchData.missingSkills || [],
+        hasApplied: appliedJobIds.includes(job._id.toString())
+      };
+    });
 
     res.json({
       success: true,

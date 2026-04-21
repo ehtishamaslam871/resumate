@@ -102,7 +102,7 @@ export default function Interview() {
         role: createForm.role.trim(),
         techStack: createForm.techStack,
         experienceLevel: createForm.experienceLevel,
-        questionCount: 5,
+        questionCount: 10,
       });
 
       const created = response?.interview;
@@ -131,7 +131,7 @@ export default function Interview() {
       <div className="fixed top-0 right-0 -z-10 h-[28rem] w-[28rem] rounded-full bg-gradient-to-br from-neon-cyan/10 to-neon-purple/5 blur-3xl" />
       <div className="fixed bottom-0 left-0 -z-10 h-[30rem] w-[30rem] rounded-full bg-gradient-to-tr from-neon-blue/10 to-neon-pink/10 blur-3xl" />
 
-      <main className="mx-auto max-w-6xl px-6 py-12">
+      <main className="mx-auto max-w-6xl px-6 pb-12 pt-24 sm:pt-28">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-neon-cyan/30 bg-neon-cyan/10 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-neon-cyan">

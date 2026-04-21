@@ -1,12 +1,3 @@
-/**
- * Model Service — Bridge between Node.js backend and local Python FastAPI model server
- *
- * Resume Parsing: rule-based regex parser (instant, no LLM)
- * Generative tasks (scoring, interview, chat, matching): Ollama (optional)
- *
- * Architecture:
- *   Node.js (this file) → FastAPI (model-server/server.py) → regex parser / Ollama
- */
 
 const axios = require('axios');
 
@@ -161,15 +152,18 @@ const generateInterviewQuestions = async (jobDescription, resumeText, options = 
   const requestedCount = Number(options.count);
   const count = Number.isFinite(requestedCount)
     ? Math.min(Math.max(requestedCount, 3), 10)
-    : 5;
+    : 10;
+
+  const technicalTarget = Math.min(5, Math.max(Math.floor(count / 2), 1));
+  const generalTarget = Math.max(count - technicalTarget, 1);
 
   const difficulty = options.difficulty || 'mixed';
   const experienceLevel = options.experienceLevel || 'mid-level';
-  const rolePrompt = `${jobDescription}. Experience level: ${experienceLevel}. Generate role-specific and technology-specific PRACTICE interview questions. Avoid generic or unrelated questions.`;
+  const rolePrompt = `${jobDescription}. Experience level: ${experienceLevel}. Generate exactly ${count} role-specific and technology-specific PRACTICE interview questions. Include exactly ${generalTarget} general questions and ${technicalTarget} technical questions related to the selected role and tech stack. Avoid generic or unrelated questions.`;
 
   if (shouldUseOpenAI()) {
     try {
-      const prompt = `Generate ${count} interview practice questions in JSON for this role context:\n${rolePrompt}\n\nTech stack focus: ${skills.join(', ') || 'general'}\nDifficulty: ${difficulty}\n\nReturn JSON exactly in this shape:\n{\n  "questions": [\n    {\n      "id": 1,\n      "question": "...",\n      "type": "technical|behavioral|situational",\n      "difficulty": "easy|medium|hard",\n      "expectedKeywords": ["..."],\n      "sampleAnswer": "concise ideal answer outline"\n    }\n  ]\n}`;
+      const prompt = `Generate ${count} interview practice questions in JSON for this role context:\n${rolePrompt}\n\nTech stack focus: ${skills.join(', ') || 'general'}\nDifficulty: ${difficulty}\n\nRules:\n1) Exactly ${generalTarget} questions must have type "general" (behavioral or situational).\n2) Exactly ${technicalTarget} questions must have type "technical" and explicitly reference the role and/or provided technologies.\n3) No duplicate questions.\n\nReturn JSON exactly in this shape:\n{\n  "questions": [\n    {\n      "id": 1,\n      "question": "...",\n      "type": "general|technical",\n      "difficulty": "easy|medium|hard",\n      "expectedKeywords": ["..."],\n      "sampleAnswer": "concise ideal answer outline"\n    }\n  ]\n}`;
 
       const parsed = await callOpenAIJsonTask({
         model: OPENAI_MODEL_INTERVIEW_GENERATION,

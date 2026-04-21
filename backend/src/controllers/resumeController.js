@@ -79,9 +79,9 @@ exports.uploadResume = async (req, res) => {
 
     // Extract text and parse resume (fast text parser first, AI enhancement async)
     try {
-      console.log('🤖 Extracting text from file...');
+      console.log(' Extracting text from file...');
       const resumeText = await extractTextFromFile(filePath, file.mimetype);
-      console.log('✅ Extracted text length:', resumeText.length);
+      console.log(' Extracted text length:', resumeText.length);
 
       // --- Content-based validation: check for resume-like content ---
       const MIN_LENGTH = 400; // Minimum reasonable length for a resume
@@ -141,7 +141,7 @@ exports.uploadResume = async (req, res) => {
       };
 
       // Primary: call the model server's regex parser (fast, comprehensive)
-      console.log('📝 Parsing resume via model server (regex engine)...');
+      console.log(' Parsing resume via model server (regex engine)...');
       let data;
       let usedModel = 'regex-nlp';
       
@@ -167,7 +167,7 @@ exports.uploadResume = async (req, res) => {
             improvements: d.improvements || [],
           };
           usedModel = analysis.model || 'regex-nlp';
-          console.log('✅ Model server parsed:', {
+          console.log(' Model server parsed:', {
             skills: data.skills?.length || 0,
             experience: data.experience?.length || 0,
             education: data.education?.length || 0,
@@ -178,7 +178,7 @@ exports.uploadResume = async (req, res) => {
         }
       } catch (modelErr) {
         // Fallback: local JS text parser (if model server is unreachable)
-        console.warn('⚠️ Model server unavailable, using local text parser:', modelErr.message);
+        console.warn(' Model server unavailable, using local text parser:', modelErr.message);
         data = parseResumeText(resumeText);
         usedModel = 'text-parser-fallback';
         data.skills = normalizeSkills(data.skills);
@@ -212,7 +212,7 @@ exports.uploadResume = async (req, res) => {
       };
       resume.aiModel = usedModel;
       resume.isParsed = true;
-      console.log('✅ Resume parsed successfully with', usedModel);
+      console.log(' Resume parsed successfully with', usedModel);
       
       await resume.save();
       res.status(201).json({ 
@@ -220,7 +220,7 @@ exports.uploadResume = async (req, res) => {
         resume
       });
     } catch (aiErr) {
-      console.error('❌ AI parse failed:', aiErr.message);
+      console.error(' AI parse failed:', aiErr.message);
       console.error('Stack:', aiErr.stack);
       // Save resume without AI analysis if parsing fails
       resume.isParsed = false;

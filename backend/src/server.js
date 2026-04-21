@@ -12,7 +12,7 @@ const initServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
-    console.log('✅ Database connection established');
+    console.log(' Database connection established');
 
     // Create HTTP server for Socket.IO
     const server = http.createServer(app);
@@ -24,11 +24,11 @@ const initServer = async () => {
     app.set('io', io);
 
     server.listen(PORT, () => {
-      console.log(`🚀 Node API listening on port ${PORT}`);
-      console.log(`🔌 WebSocket server ready`);
+      console.log(` Node API listening on port ${PORT}`);
+      console.log(` WebSocket server ready`);
     }).on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${PORT} is already in use. Please:`);
+        console.error(` Port ${PORT} is already in use. Please:`);
         console.error(`   1. Kill the process using port ${PORT}`);
         console.error(`   2. Or change PORT in .env file to a different port`);
         process.exit(1);
@@ -40,7 +40,7 @@ const initServer = async () => {
     // Export for testing
     module.exports = server;
   } catch (error) {
-    console.error('❌ Server initialization failed:', error.message);
+    console.error(' Server initialization failed:', error.message);
     process.exit(1);
   }
 };

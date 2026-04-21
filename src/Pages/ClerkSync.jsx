@@ -9,7 +9,6 @@ const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 const normalizeRole = (role) => {
   if (!role) return 'job_seeker'
   const cleaned = String(role).toLowerCase().replace(/[\s_-]/g, '')
-  if (cleaned === 'admin') return 'admin'
   if (cleaned === 'recruiter') return 'recruiter'
   return 'job_seeker'
 }

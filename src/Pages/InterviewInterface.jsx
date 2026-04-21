@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { interviewAPI } from '../services/api';
 import Navbar from '../components/Navbar';
@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Clock,
   Loader,
-  Mic,
   Play,
   Sparkles,
 } from 'lucide-react';
@@ -29,10 +28,79 @@ export default function InterviewInterface() {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState({});
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+
+  const stopCameraPreview = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setCameraEnabled(false);
+  };
+
+  const startCameraPreview = async () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      throw new Error('Camera preview is not supported in this browser.');
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
+
+    cameraStreamRef.current = stream;
+    setCameraEnabled(true);
+  };
+
+  const handleCameraPreviewToggle = async () => {
+    if (cameraEnabled) {
+      stopCameraPreview();
+      return;
+    }
+
+    try {
+      setError('');
+      await startCameraPreview();
+    } catch (err) {
+      console.error('Error starting camera preview:', err);
+      stopCameraPreview();
+      setError(err.message || 'Unable to access camera. Please allow camera permissions and try again.');
+    }
+  };
 
   useEffect(() => {
     fetchInterview();
   }, [interviewId]);
+
+  useEffect(() => {
+    if (!cameraEnabled || !videoRef.current || !cameraStreamRef.current) {
+      return;
+    }
+
+    videoRef.current.srcObject = cameraStreamRef.current;
+
+    const playPromise = videoRef.current.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch((err) => {
+        console.error('Error playing camera preview:', err);
+      });
+    }
+  }, [cameraEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+        cameraStreamRef.current = null;
+      }
+    };
+  }, []);
 
   const fetchInterview = async () => {
     try {
@@ -91,6 +159,7 @@ export default function InterviewInterface() {
       setSubmitting(true);
       setError('');
       await interviewAPI.startInterviewSession(interviewId);
+      stopCameraPreview();
       setStage('session');
       await fetchInterview();
     } catch (err) {
@@ -233,7 +302,7 @@ export default function InterviewInterface() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={() => setCameraEnabled((prev) => !prev)}
+                  onClick={handleCameraPreviewToggle}
                   className="btn-secondary inline-flex items-center gap-2 px-5 py-2.5"
                 >
                   {cameraEnabled ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
@@ -253,6 +322,13 @@ export default function InterviewInterface() {
                 <div className="mt-5 rounded-xl border border-neon-cyan/30 bg-dark-900/80 p-4">
                   <p className="text-sm text-neon-cyan font-semibold mb-1">Camera Preview Enabled</p>
                   <p className="text-xs text-gray-400">You are ready to continue with a live interview setup.</p>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="mt-3 w-full max-w-md rounded-lg border border-neon-cyan/30 bg-dark-950/80"
+                  />
                 </div>
               )}
             </div>
@@ -331,7 +407,6 @@ export default function InterviewInterface() {
                           </>
                         ) : (
                           <>
-                            <Mic className="w-4 h-4" />
                             Submit Answer
                           </>
                         )}

@@ -4,6 +4,18 @@ import Navbar from '../components/Navbar';
 import { applicationAPI } from '../services/api';
 import { Loader, AlertCircle, ArrowRight, Zap } from 'lucide-react';
 
+const formatSalaryRange = (job = {}) => {
+  const min = Number(job.salaryMin || 0);
+  const max = Number(job.salaryMax || 0);
+  const currency = job.currency || 'USD';
+
+  if (!min && !max) return 'Not disclosed';
+
+  const fmt = (value) => `${Math.round(value / 1000)}k ${currency}`;
+  if (min && max) return `${fmt(min)} - ${fmt(max)}`;
+  return min ? `From ${fmt(min)}` : `Up to ${fmt(max)}`;
+};
+
 export default function JobRecommendations() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,12 +61,6 @@ export default function JobRecommendations() {
     } finally {
       setApplying(prev => ({ ...prev, [jobId]: false }));
     }
-  };
-
-  const getMatchBadge = (score) => {
-    if (score >= 80) return { bg: 'bg-green-500/20', border: 'border-green-500/30', text: 'text-green-400', label: 'Excellent Match' };
-    if (score >= 60) return { bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-400', label: 'Good Match' };
-    return { bg: 'bg-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400', label: 'Possible Match' };
   };
 
   if (loading) {
@@ -122,7 +128,8 @@ export default function JobRecommendations() {
         ) : (
           <div className="space-y-6">
             {jobs.map((job) => {
-              const matchScore = job.matchScore || 0;
+              const matchScore = job.matchScore ?? job.matchData?.totalScore ?? 0;
+              const breakdown = job.breakdown || job.matchData?.breakdown || {};
               const matchBadge = matchScore >= 80 
                 ? { bg: 'bg-neon-green/20', border: 'border-neon-green/50', text: 'text-neon-green', label: 'Excellent Match' }
                 : matchScore >= 60 
@@ -138,7 +145,7 @@ export default function JobRecommendations() {
                     <div className="flex-1">
                       <h3 className="text-2xl font-bold text-gray-100 mb-2">{job.title}</h3>
                       <p className="text-neon-cyan font-semibold text-lg mb-3">{job.company}</p>
-                      <p className="text-gray-300 line-clamp-2">{job.description?.substring(0, 150)}...</p>
+                      <p className="text-gray-300 line-clamp-2">{job.description?.substring(0, 150)}</p>
                     </div>
                     <div className={`${matchBadge.bg} ${matchBadge.border} border px-8 py-6 rounded-2xl flex flex-col items-center justify-center min-w-fit`}>
                       <div className={`text-5xl font-bold ${matchBadge.text}`}>{Math.round(matchScore)}%</div>
@@ -149,28 +156,28 @@ export default function JobRecommendations() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-dark-800/30 p-6 rounded-xl border border-dark-700/50">
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Skills Match</p>
-                      <p className="text-neon-cyan font-semibold text-base">{Math.round(job.breakdown?.skills || 0)}%</p>
+                      <p className="text-neon-cyan font-semibold text-base">{Math.round(breakdown.skills || 0)}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Experience</p>
-                      <p className="text-neon-cyan font-semibold text-base">{Math.round(job.breakdown?.experience || 0)}%</p>
+                      <p className="text-neon-cyan font-semibold text-base">{Math.round(breakdown.experience || 0)}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Location Match</p>
-                      <p className="text-neon-cyan font-semibold text-base">{Math.round(job.breakdown?.location || 0)}%</p>
+                      <p className="text-neon-cyan font-semibold text-base">{Math.round(breakdown.location || 0)}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-2">Salary Range</p>
-                      <p className="text-neon-cyan font-semibold text-base">${(job.salary / 1000).toFixed(0)}k</p>
+                      <p className="text-neon-cyan font-semibold text-base">{formatSalaryRange(job)}</p>
                     </div>
                   </div>
 
                   <div className="flex gap-3 flex-wrap">
                     <button
                       onClick={() => handleApply(job._id)}
-                      disabled={applying[job._id]}
+                      disabled={applying[job._id] || job.hasApplied}
                       className={`flex-1 min-w-fit px-8 py-3 rounded-lg font-bold text-base transition flex items-center justify-center gap-2 ${
-                        applying[job._id]
+                        applying[job._id] || job.hasApplied
                           ? 'bg-dark-800/50 text-gray-400 cursor-not-allowed'
                           : 'btn-primary shadow-lg shadow-neon-cyan/50'
                       }`}
@@ -180,6 +187,8 @@ export default function JobRecommendations() {
                           <Loader className="w-5 h-5 animate-spin" />
                           Applying...
                         </>
+                      ) : job.hasApplied ? (
+                        'Already Applied'
                       ) : (
                         <>
                           <ArrowRight className="w-5 h-5" />
@@ -188,7 +197,7 @@ export default function JobRecommendations() {
                       )}
                     </button>
                     <button
-                      onClick={() => navigate(`/job/${job.title}`)}
+                      onClick={() => navigate(`/job/${encodeURIComponent(job.title)}`, { state: { job } })}
                       className="flex-1 min-w-fit px-8 py-3 bg-neon-cyan/10 border border-neon-cyan/50 text-neon-cyan rounded-lg font-bold hover:bg-neon-cyan/20 transition"
                     >
                       View Details

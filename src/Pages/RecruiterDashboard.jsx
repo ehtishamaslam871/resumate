@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import api from "../services/api";
-import { Plus, Edit, Trash2, Eye, Loader, AlertCircle, CheckCircle, X, Save, UserCheck, UserX, ChevronDown, ChevronUp, Mail, Phone, FileText, ExternalLink, Sparkles, TrendingUp, Star } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Loader, AlertCircle, CheckCircle, X, Save, UserCheck, UserX, ChevronDown, ChevronUp, Mail, Phone, FileText, ExternalLink, Sparkles, TrendingUp, Star, Calendar, Database } from "lucide-react";
 
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
@@ -19,10 +19,14 @@ export default function RecruiterDashboard() {
   const [expandedApp, setExpandedApp] = useState(null);
   const [shortlisting, setShortlisting] = useState(null);
   const [showTopOnly, setShowTopOnly] = useState(false);
+  const [showInterviewCallFor, setShowInterviewCallFor] = useState(null);
+  const [interviewCallData, setInterviewCallData] = useState({});
+  const [sendingInterviewCall, setSendingInterviewCall] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const CURRENCIES = [
     { code: 'USD', symbol: '$', name: 'US Dollar' },
@@ -222,6 +226,27 @@ export default function RecruiterDashboard() {
     });
   };
 
+  const handleSeedSampleJobs = async () => {
+    setSeeding(true);
+    setError(null);
+    try {
+      const response = await api.job.seedSampleJobs();
+
+      // Refresh recruiter jobs after seeding
+      const jobsResponse = await api.job.getRecruiterJobs();
+      const fetchedJobs = jobsResponse.jobs || [];
+      setJobs(fetchedJobs);
+
+      setActiveTab("jobs");
+      setSuccess(response.message || "Sample jobs added successfully!");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to add sample jobs");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   // View applicants for a specific job
   const handleViewApplicants = async (jobId) => {
     setSelectedJobId(jobId);
@@ -304,6 +329,80 @@ export default function RecruiterDashboard() {
     }
   };
 
+  const toDateTimeLocalValue = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const pad = (num) => String(num).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const openInterviewCallForm = (app) => {
+    const existing = interviewCallData[app._id] || {};
+    setInterviewCallData((prev) => ({
+      ...prev,
+      [app._id]: {
+        interviewDate: existing.interviewDate || toDateTimeLocalValue(app.interviewScheduled),
+        interviewLink: existing.interviewLink || ''
+      }
+    }));
+    setShowInterviewCallFor(app._id);
+  };
+
+  const updateInterviewCallField = (applicationId, field, value) => {
+    setInterviewCallData((prev) => ({
+      ...prev,
+      [applicationId]: {
+        ...(prev[applicationId] || {}),
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSendInterviewCall = async (app) => {
+    const form = interviewCallData[app._id] || {};
+    const interviewDate = form.interviewDate;
+    const interviewLink = (form.interviewLink || '').trim();
+
+    if (!interviewDate || !interviewLink) {
+      setError('Please provide both interview date/time and meeting link.');
+      return;
+    }
+
+    setSendingInterviewCall(app._id);
+    setError(null);
+    try {
+      const dateIso = new Date(interviewDate).toISOString();
+      await api.interview.sendInterviewToCandidate(app._id, dateIso, interviewLink);
+
+      setApplications((prev) =>
+        prev.map((candidateApp) =>
+          candidateApp._id === app._id
+            ? {
+                ...candidateApp,
+                interviewStatus: 'scheduled',
+                interviewScheduled: dateIso,
+              }
+            : candidateApp
+        )
+      );
+
+      setShowInterviewCallFor(null);
+      setSuccess(`Interview call sent to ${app.applicantName || 'candidate'} successfully.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to send interview call.');
+    } finally {
+      setSendingInterviewCall(null);
+    }
+  };
+
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-green-400';
     if (score >= 60) return 'text-neon-cyan';
@@ -369,13 +468,28 @@ export default function RecruiterDashboard() {
             <p className="text-neon-cyan font-semibold text-lg">Post jobs, manage applications, and find top talent</p>
           </div>
           {!showCreateForm && (
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="btn-primary flex items-center gap-2 px-8 py-3 font-bold text-lg shadow-lg shadow-neon-cyan/50"
-            >
-              <Plus className="w-6 h-6" />
-              Post New Job
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSeedSampleJobs}
+                disabled={seeding}
+                className={`px-6 py-3 rounded-lg font-bold text-base border transition flex items-center gap-2 ${
+                  seeding
+                    ? "bg-dark-800/60 text-gray-400 border-dark-700 cursor-not-allowed"
+                    : "bg-neon-blue/10 text-neon-blue border-neon-blue/40 hover:bg-neon-blue/20"
+                }`}
+              >
+                {seeding ? <Loader className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+                {seeding ? "Adding Samples..." : "Add Sample Jobs"}
+              </button>
+
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="btn-primary flex items-center gap-2 px-8 py-3 font-bold text-lg shadow-lg shadow-neon-cyan/50"
+              >
+                <Plus className="w-6 h-6" />
+                Post New Job
+              </button>
+            </div>
           )}
         </div>
 
@@ -649,12 +763,26 @@ export default function RecruiterDashboard() {
             {jobs.length === 0 ? (
               <div className="card-glass p-16 rounded-2xl text-center border border-neon-cyan/20">
                 <p className="text-gray-400 text-xl mb-8">No jobs posted yet</p>
-                <button
-                  onClick={() => setShowCreateForm(true)}
-                  className="btn-primary px-8 py-3 font-bold"
-                >
-                  Post Your First Job
-                </button>
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                  <button
+                    onClick={handleSeedSampleJobs}
+                    disabled={seeding}
+                    className={`px-8 py-3 rounded-lg font-bold border transition flex items-center gap-2 ${
+                      seeding
+                        ? "bg-dark-800/60 text-gray-400 border-dark-700 cursor-not-allowed"
+                        : "bg-neon-blue/10 text-neon-blue border-neon-blue/40 hover:bg-neon-blue/20"
+                    }`}
+                  >
+                    {seeding ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                    {seeding ? "Adding Samples..." : "Add Sample Jobs"}
+                  </button>
+                  <button
+                    onClick={() => setShowCreateForm(true)}
+                    className="btn-primary px-8 py-3 font-bold"
+                  >
+                    Post Your First Job
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
@@ -1045,7 +1173,64 @@ export default function RecruiterDashboard() {
                                     Mark as Reviewing
                                   </button>
                                 )}
+
+                                {(app.status === 'shortlisted' || app.status === 'accepted') && (
+                                  <button
+                                    onClick={() => openInterviewCallForm(app)}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-500/20 border border-violet-500/50 text-violet-300 rounded-xl hover:bg-violet-500/30 transition font-bold text-sm"
+                                  >
+                                    <Calendar className="w-4 h-4" />
+                                    {app.interviewStatus === 'scheduled' ? 'Resend Interview Call' : 'Send Interview Call'}
+                                  </button>
+                                )}
                               </div>
+
+                              {app.interviewStatus === 'scheduled' && app.interviewScheduled && (
+                                <p className="text-xs text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded-lg px-3 py-2">
+                                  Interview scheduled for {new Date(app.interviewScheduled).toLocaleString()}
+                                </p>
+                              )}
+
+                              {showInterviewCallFor === app._id && (
+                                <div className="mt-3 space-y-3 bg-dark-800/40 border border-dark-700 rounded-xl p-3">
+                                  <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Interview Date & Time</label>
+                                    <input
+                                      type="datetime-local"
+                                      value={interviewCallData[app._id]?.interviewDate || ''}
+                                      onChange={(e) => updateInterviewCallField(app._id, 'interviewDate', e.target.value)}
+                                      className="input-modern w-full"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Meeting Link</label>
+                                    <input
+                                      type="url"
+                                      placeholder="https://meet.google.com/..."
+                                      value={interviewCallData[app._id]?.interviewLink || ''}
+                                      onChange={(e) => updateInterviewCallField(app._id, 'interviewLink', e.target.value)}
+                                      className="input-modern w-full"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleSendInterviewCall(app)}
+                                      disabled={sendingInterviewCall === app._id}
+                                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-violet-500/20 border border-violet-500/50 text-violet-300 rounded-lg hover:bg-violet-500/30 transition font-bold text-sm disabled:opacity-60"
+                                    >
+                                      {sendingInterviewCall === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                                      Send Call
+                                    </button>
+                                    <button
+                                      onClick={() => setShowInterviewCallFor(null)}
+                                      disabled={sendingInterviewCall === app._id}
+                                      className="flex-1 px-4 py-2 bg-dark-700 border border-dark-600 text-gray-300 rounded-lg hover:bg-dark-600 transition font-bold text-sm disabled:opacity-60"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
 
                               {app.recruiterFeedback && (
                                 <div className="mt-3">

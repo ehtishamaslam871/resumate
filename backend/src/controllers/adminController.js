@@ -3,6 +3,8 @@ const Job = require('../models/Job');
 const Application = require('../models/Application');
 const Resume = require('../models/Resume');
 const Interview = require('../models/Interview');
+const AdminInvite = require('../models/AdminInvite');
+const crypto = require('crypto');
 
 // Get dashboard statistics
 exports.getDashboardStats = async (req, res) => {
@@ -415,6 +417,134 @@ exports.changeUserRole = async (req, res) => {
   } catch (error) {
     console.error('Change role error:', error);
     res.status(500).json({ error: 'Failed to change role' });
+  }
+};
+
+// Create one-time admin invite token
+exports.createAdminInvite = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    const expiresInHours = Number(req.body?.expiresInHours || 24);
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    if (!Number.isFinite(expiresInHours) || expiresInHours < 1 || expiresInHours > 168) {
+      return res.status(400).json({ error: 'expiresInHours must be between 1 and 168' });
+    }
+
+    const now = new Date();
+    await AdminInvite.updateMany(
+      {
+        email,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { $gt: now },
+      },
+      {
+        $set: {
+          revokedAt: now,
+          revokedBy: user._id,
+        },
+      }
+    );
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
+
+    const invite = await AdminInvite.create({
+      email,
+      tokenHash,
+      expiresAt,
+      createdBy: user._id,
+    });
+
+    return res.status(201).json({
+      message: 'Admin invite created',
+      invite: {
+        id: invite._id,
+        email: invite.email,
+        expiresAt: invite.expiresAt,
+        token,
+      },
+    });
+  } catch (error) {
+    console.error('Create admin invite error:', error);
+    return res.status(500).json({ error: 'Failed to create admin invite' });
+  }
+};
+
+// List recent admin invites (without token hash)
+exports.listAdminInvites = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const invites = await AdminInvite.find()
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('createdBy', 'name email')
+      .populate('usedBy', 'name email')
+      .populate('revokedBy', 'name email')
+      .select('-tokenHash')
+      .lean();
+
+    const now = Date.now();
+    const withStatus = invites.map((invite) => {
+      let status = 'active';
+      if (invite.usedAt) status = 'used';
+      else if (invite.revokedAt) status = 'revoked';
+      else if (new Date(invite.expiresAt).getTime() <= now) status = 'expired';
+      return { ...invite, status };
+    });
+
+    return res.json({ invites: withStatus });
+  } catch (error) {
+    console.error('List admin invites error:', error);
+    return res.status(500).json({ error: 'Failed to list admin invites' });
+  }
+};
+
+// Revoke active admin invite
+exports.revokeAdminInvite = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const { inviteId } = req.params;
+    const invite = await AdminInvite.findById(inviteId);
+
+    if (!invite) {
+      return res.status(404).json({ error: 'Invite not found' });
+    }
+
+    if (invite.usedAt) {
+      return res.status(400).json({ error: 'Invite is already used and cannot be revoked' });
+    }
+
+    if (invite.revokedAt) {
+      return res.status(400).json({ error: 'Invite is already revoked' });
+    }
+
+    invite.revokedAt = new Date();
+    invite.revokedBy = user._id;
+    await invite.save();
+
+    return res.json({ message: 'Invite revoked successfully' });
+  } catch (error) {
+    console.error('Revoke admin invite error:', error);
+    return res.status(500).json({ error: 'Failed to revoke invite' });
   }
 };
 

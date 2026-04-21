@@ -1,7 +1,6 @@
 const Interview = require('../models/Interview');
 const Application = require('../models/Application');
 const Job = require('../models/Job');
-const User = require('../models/User');
 const Notification = require('../models/Notification');
 const modelService = require('../services/modelService');
 
@@ -112,9 +111,18 @@ exports.scheduleInterview = async (req, res) => {
     const application = await Application.findById(applicationId);
     if (!application) return res.status(404).json({ message: 'Application not found' });
 
+    const job = await Job.findById(application.job);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
     // Verify recruiter
-    if (application.recruiter?.toString() !== recruiterID.toString()) {
+    if (job.recruiter.toString() !== recruiterID.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (!['shortlisted', 'accepted'].includes(application.status)) {
+      return res.status(400).json({
+        message: 'Only shortlisted candidates can be invited to interview'
+      });
     }
 
     // Update application
@@ -122,10 +130,6 @@ exports.scheduleInterview = async (req, res) => {
       interviewScheduled: interviewDate,
       interviewStatus: 'scheduled'
     });
-
-    // Get candidate details
-    const candidate = await User.findById(application.applicant);
-    const job = await Job.findById(application.job);
 
     // Send notification to candidate
     await Notification.create({
@@ -308,17 +312,21 @@ exports.sendInterviewToCandidate = async (req, res) => {
     const { applicationId, interviewDate, interviewLink } = req.body;
     const recruiterID = req.user.id;
 
-    const application = await Application.findById(applicationId);
+    const application = await Application.findById(applicationId).populate('resume');
     if (!application) return res.status(404).json({ message: 'Application not found' });
 
     // Verify recruiter
     const job = await Job.findById(application.job);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
     if (job.recruiter.toString() !== recruiterID.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Get candidate
-    const candidate = await User.findById(application.applicant);
+    if (!['shortlisted', 'accepted'].includes(application.status)) {
+      return res.status(400).json({
+        message: 'Only shortlisted candidates can be invited to interview'
+      });
+    }
 
     // Create/Get interview
     let interview = await Interview.findOne({

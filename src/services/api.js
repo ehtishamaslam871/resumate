@@ -114,6 +114,17 @@ export const authAPI = {
   },
 
   /**
+   * Claim admin role using one-time invite token (requires logged-in user)
+   * @param {string} token
+   */
+  claimAdminInvite: (token) => {
+    return apiCall('/auth/admin/claim', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+  },
+
+  /**
    * Get current user profile
    */
   getProfile: () => {
@@ -284,6 +295,15 @@ export const jobAPI = {
   getRecruiterJobs: () => {
     return apiCall('/jobs/recruiter/my-jobs', {
       method: 'GET',
+    })
+  },
+
+  /**
+   * Add curated sample jobs for current recruiter
+   */
+  seedSampleJobs: () => {
+    return apiCall('/jobs/recruiter/seed-sample', {
+      method: 'POST',
     })
   },
 
@@ -683,6 +703,35 @@ export const adminAPI = {
    */
   getSystemHealth: () => {
     return apiCall('/admin/dashboard/health', { method: 'GET' })
+  },
+
+  /**
+   * Create a one-time admin invite token for an email
+   * @param {string} email
+   * @param {number} expiresInHours - between 1 and 168, default 24
+   */
+  createAdminInvite: (email, expiresInHours = 24) => {
+    return apiCall('/admin/invites/admin', {
+      method: 'POST',
+      body: JSON.stringify({ email, expiresInHours }),
+    })
+  },
+
+  /**
+   * List recent admin invites
+   */
+  listAdminInvites: () => {
+    return apiCall('/admin/invites/admin', { method: 'GET' })
+  },
+
+  /**
+   * Revoke an active admin invite
+   * @param {string} inviteId
+   */
+  revokeAdminInvite: (inviteId) => {
+    return apiCall(`/admin/invites/admin/${inviteId}/revoke`, {
+      method: 'PATCH',
+    })
   },
 }
 

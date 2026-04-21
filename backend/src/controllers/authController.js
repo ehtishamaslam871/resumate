@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const { createClerkClient, verifyToken } = require('@clerk/backend');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
+const AdminInvite = require('../models/AdminInvite');
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -28,6 +29,12 @@ const normalizeRole = (roleValue) => {
   if (cleaned === 'recruiter') return 'recruiter';
   if (cleaned === 'admin') return 'admin';
   return 'job_seeker';
+};
+
+const normalizePublicRole = (roleValue) => {
+  const normalized = normalizeRole(roleValue);
+  if (normalized === 'admin') return null;
+  return normalized;
 };
 
 const redirectWithOAuthSuccess = (res, user) => {
@@ -107,6 +114,11 @@ const isStrongPassword = (password = '') => {
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, phone } = req.body;
+    const normalizedRole = normalizePublicRole(role);
+
+    if (!normalizedRole) {
+      return res.status(403).json({ message: 'Admin self-registration is not allowed' });
+    }
     
     // Check if user exists
     let user = await User.findOne({ email: email.toLowerCase() });
@@ -117,7 +129,7 @@ exports.register = async (req, res) => {
       name,
       email: email.toLowerCase(),
       password,
-      role: normalizeRole(role),
+      role: normalizedRole,
       phone,
       emailVerified: false,
       isActive: true
@@ -191,7 +203,10 @@ exports.clerkSync = async (req, res) => {
     const fullName = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
     const displayName = fullName || clerkUser.username || email.split('@')[0] || 'User';
     const phone = clerkUser.phoneNumbers?.[0]?.phoneNumber || undefined;
-    const desiredRole = normalizeRole(req.body?.role);
+    const desiredRole = normalizePublicRole(req.body?.role);
+    if (!desiredRole) {
+      return res.status(403).json({ message: 'Admin self-registration is not allowed' });
+    }
 
     let user = await User.findOne({ $or: [{ clerkId: clerkUserId }, { email }] });
     if (!user) {
@@ -451,5 +466,67 @@ exports.appleCallback = async (req, res) => {
 // ==================== OAUTH FAILURE ====================
 exports.oauthFailure = async (req, res) => {
   return res.redirect(`${getFrontendBaseUrl()}/auth?error=${encodeURIComponent('Social login failed. Please try again.')}`);
+};
+
+// ==================== CLAIM ADMIN INVITE ====================
+exports.claimAdminInvite = async (req, res) => {
+  try {
+    const token = String(req.body?.token || '').trim();
+    if (!token) {
+      return res.status(400).json({ message: 'Invite token is required' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(400).json({ message: 'User is already an admin' });
+    }
+
+    const email = String(user.email || '').toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({ message: 'User email is required to claim admin invite' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const now = new Date();
+
+    const invite = await AdminInvite.findOneAndUpdate(
+      {
+        tokenHash,
+        email,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { $gt: now },
+      },
+      {
+        $set: {
+          usedAt: now,
+          usedBy: user._id,
+        },
+      },
+      { new: true }
+    );
+
+    if (!invite) {
+      return res.status(400).json({ message: 'Invalid, expired, revoked, or already used invite token' });
+    }
+
+    user.role = 'admin';
+    await user.save();
+
+    const appToken = generateToken(user);
+
+    return res.json({
+      message: 'Admin access granted successfully',
+      token: appToken,
+      user: getSafeUserPayload(user),
+    });
+  } catch (err) {
+    console.error('Claim admin invite error:', err);
+    return res.status(500).json({ message: err.message || 'Unable to claim admin invite' });
+  }
 };
 

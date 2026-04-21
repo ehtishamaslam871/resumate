@@ -11,7 +11,7 @@ const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(primaryUri, connectOptions);
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
+    console.log(` MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
     return conn;
   } catch (error) {
     const isAuthFailure = error?.code === 8000 || /Authentication failed/i.test(error?.message || '');
@@ -21,23 +21,23 @@ const connectDB = async () => {
     // In development, local fallback prevents crash loops when Atlas is unreachable.
     if (shouldTryFallback) {
       try {
-        console.warn('⚠️ Primary MongoDB connection failed. Trying local fallback URI...');
+        console.warn(' Primary MongoDB connection failed. Trying local fallback URI...');
         const fallbackConn = await mongoose.connect(fallbackUri, connectOptions);
-        console.log(`✅ MongoDB Connected (fallback): ${fallbackConn.connection.host}/${fallbackConn.connection.name}`);
+        console.log(` MongoDB Connected (fallback): ${fallbackConn.connection.host}/${fallbackConn.connection.name}`);
         return fallbackConn;
       } catch (fallbackError) {
-        console.error('❌ MongoDB fallback connection failed:', fallbackError.message);
+        console.error(' MongoDB fallback connection failed:', fallbackError.message);
       }
     }
 
     if (error?.code === 8000 || /Authentication failed/i.test(error?.message || '')) {
-      console.error('❌ MongoDB auth failed: check DB username/password in backend/.env (MONGODB_URI).');
+      console.error(' MongoDB auth failed: check DB username/password in backend/.env (MONGODB_URI).');
     } else if (/ENOTFOUND|querySrv/i.test(error?.message || '')) {
-      console.error('❌ MongoDB DNS error: verify Atlas cluster host in MONGODB_URI and internet/DNS access.');
+      console.error(' MongoDB DNS error: verify Atlas cluster host in MONGODB_URI and internet/DNS access.');
     } else if (/IP|whitelist|timed out|ECONNREFUSED|server selection/i.test(error?.message || '')) {
-      console.error('❌ MongoDB network access issue: add current public IP in Atlas Network Access.');
+      console.error(' MongoDB network access issue: add current public IP in Atlas Network Access.');
     }
-    console.error('❌ MongoDB Connection Error:', error.message);
+    console.error(' MongoDB Connection Error:', error.message);
     throw error;
   }
 };

@@ -2,15 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { jobAPI } from '../services/api';
-import { Plus, Edit2, Trash2, Eye, Filter, Loader, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, Loader, AlertCircle, Database } from 'lucide-react';
 
 export default function RecruiterJobs() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [filter, setFilter] = useState('all');
   const [deleting, setDeleting] = useState(null);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     fetchRecruiterJobs();
@@ -20,16 +22,34 @@ export default function RecruiterJobs() {
     try {
       setLoading(true);
       const response = await jobAPI.getRecruiterJobs();
-      if (response.success) {
-        setJobs(response.jobs || []);
-      } else {
+      if (response?.success === false) {
         setError(response.message || 'Failed to load jobs');
+        setJobs([]);
+        return;
       }
+
+      setJobs(response?.jobs || []);
+      setError('');
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setError('Error loading jobs');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSeedSampleJobs = async () => {
+    try {
+      setSeeding(true);
+      setError('');
+      const response = await jobAPI.seedSampleJobs();
+      await fetchRecruiterJobs();
+      setSuccessMessage(response?.message || 'Sample jobs added');
+    } catch (err) {
+      console.error('Error seeding sample jobs:', err);
+      setError(err.message || 'Failed to add sample jobs');
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -40,6 +60,11 @@ export default function RecruiterJobs() {
   };
 
   const filteredJobs = getFilteredJobs();
+  const getTabCount = (tab) => {
+    if (tab === 'active') return jobs.filter(j => j.status === 'open').length;
+    if (tab === 'closed') return jobs.filter(j => j.status === 'closed').length;
+    return jobs.length;
+  };
 
   if (loading) {
     return (
@@ -75,14 +100,35 @@ export default function RecruiterJobs() {
             <h1 className="text-5xl font-bold text-gray-100 mb-3">My Job Postings</h1>
             <p className="text-neon-cyan font-semibold text-lg">Manage your active and closed job listings</p>
           </div>
-          <button
-            onClick={() => navigate('/recruiter/jobs/new')}
-            className="btn-primary flex items-center gap-2 px-8 py-3 font-bold text-lg shadow-lg shadow-neon-cyan/50"
-          >
-            <Plus className="w-5 h-5" />
-            Post New Job
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSeedSampleJobs}
+              disabled={seeding}
+              className={`px-6 py-3 font-bold text-base rounded-lg border transition flex items-center gap-2 ${
+                seeding
+                  ? 'bg-dark-800/60 text-gray-400 border-dark-700 cursor-not-allowed'
+                  : 'bg-neon-blue/10 border-neon-blue/40 text-neon-blue hover:bg-neon-blue/20'
+              }`}
+            >
+              {seeding ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+              {seeding ? 'Adding Samples...' : 'Add Sample Jobs'}
+            </button>
+
+            <button
+              onClick={() => navigate('/recruiter/jobs/new')}
+              className="btn-primary flex items-center gap-2 px-8 py-3 font-bold text-lg shadow-lg shadow-neon-cyan/50"
+            >
+              <Plus className="w-5 h-5" />
+              Post New Job
+            </button>
+          </div>
         </div>
+
+        {successMessage && (
+          <div className="mb-8 p-4 bg-neon-green/15 border border-neon-green/40 rounded-xl">
+            <p className="text-neon-green font-semibold">{successMessage}</p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-8 p-6 bg-red-500/20 border border-red-500/50 rounded-2xl flex items-start gap-3">
@@ -103,7 +149,7 @@ export default function RecruiterJobs() {
                   : 'text-gray-400 hover:text-gray-100 hover:bg-dark-800/50'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)} ({filteredJobs.length})
+              {tab.charAt(0).toUpperCase() + tab.slice(1)} ({getTabCount(tab)})
             </button>
           ))}
         </div>
