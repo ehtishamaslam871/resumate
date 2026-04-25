@@ -3,7 +3,7 @@ const path = require('path');
 
 const uploadLocal = (file) => {
   // Assumes multer stored file in uploads/ with filename property
-  const url = `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${file.filename}`;
+  const url = `${process.env.BASE_URL || 'http://localhost:5001'}/uploads/${file.filename}`;
   return url;
 };
 

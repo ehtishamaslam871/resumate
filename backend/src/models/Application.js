@@ -48,6 +48,7 @@ const applicationSchema = new mongoose.Schema({
   
   // AI Scoring
   aiScore: { type: Number, default: null },
+  resumeScore: { type: Number, default: null },
   aiReasoning: String,
   aiStrengths: [String],
   aiGaps: [String],
@@ -59,6 +60,24 @@ const applicationSchema = new mongoose.Schema({
   },
   matchedSkills: [String],
   missingSkills: [String],
+
+  // Practice interview evidence shared with recruiter on apply
+  practiceInterviewStats: {
+    totalCount: { type: Number, default: 0 },
+    completedCount: { type: Number, default: 0 },
+    averageScore: { type: Number, default: null },
+    latestCompletedAt: Date
+  },
+  practiceInterviewReports: [{
+    interviewId: mongoose.Schema.Types.ObjectId,
+    title: String,
+    completedAt: Date,
+    overallScore: Number,
+    performanceLevel: String,
+    recommendation: String,
+    summary: String,
+    detailedFeedback: String
+  }],
   
   // Interview
   interviewScheduled: Date,

@@ -1,5 +1,7 @@
 // ==================== Centralized RBAC Configuration ====================
 
+import { getAuthToken, getCurrentUser } from '../services/api';
+
 export const ROLES = {
   JOB_SEEKER: 'jobseeker',
   RECRUITER: 'recruiter',
@@ -80,21 +82,15 @@ export const GUEST_NAV_ITEMS = [
 
 export const getUserRole = () => {
   try {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      const user = JSON.parse(userData);
-      return normalizeRole(user.role);
-    }
-    const oldData = localStorage.getItem('resumate_user');
-    if (oldData) {
-      const user = JSON.parse(oldData);
+    const user = getCurrentUser();
+    if (user) {
       return normalizeRole(user.role);
     }
   } catch (e) { /* ignore */ }
   return null;
 };
 
-// Normalize role strings from backend/localStorage
+// Normalize role strings from backend values.
 function normalizeRole(role) {
   if (!role) return 'jobseeker';
   const r = role.toLowerCase().replace(/[\s_]/g, '');
@@ -103,7 +99,7 @@ function normalizeRole(role) {
   return 'jobseeker'; // job_seeker, job seeker, jobseeker → jobseeker
 }
 
-export const isAuthenticated = () => !!localStorage.getItem('authToken');
+export const isAuthenticated = () => !!getAuthToken();
 
 export const getRoleConfig = (role) => ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS[ROLES.JOB_SEEKER];
 

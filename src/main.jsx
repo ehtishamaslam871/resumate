@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ClerkProvider } from "@clerk/clerk-react";
 import "./index.css";
 import { migrateLocalStorageToMongo, isMigrationNeeded } from "./services/migration.js";
+import { getCurrentUser } from "./services/api";
 
 // RBAC
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -25,6 +26,7 @@ import Admin from "./Pages/Admin.jsx";
 import RecruiterDashboard from "./Pages/RecruiterDashboard.jsx";
 import RecruiterJobs from "./Pages/RecruiterJobs.jsx";
 import RecruiterShortlist from "./Pages/RecruiterShortlist.jsx";
+import RecruiterInterviewReport from "./Pages/RecruiterInterviewReport.jsx";
 import JobRecommendations from "./Pages/JobRecommendations.jsx";
 import Profile from "./Pages/Profile.jsx";
 import JobDetails from "./Pages/JobDetails.jsx";
@@ -39,11 +41,7 @@ const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 function HomeRedirect() {
   try {
-    // Check both new API key ('user') and old demo key ('resumate_user') for backward compatibility
-    let user = JSON.parse(localStorage.getItem('user') || 'null')
-    if (!user) {
-      user = JSON.parse(localStorage.getItem('resumate_user') || 'null')
-    }
+    const user = getCurrentUser()
     
     if (user && user.role) {
       const role = user.role.toLowerCase()
@@ -56,11 +54,7 @@ function HomeRedirect() {
 
 function AuthRoute() {
   try {
-    // Check both new API key ('user') and old demo key ('resumate_user') for backward compatibility
-    let user = JSON.parse(localStorage.getItem('user') || 'null')
-    if (!user) {
-      user = JSON.parse(localStorage.getItem('resumate_user') || 'null')
-    }
+    const user = getCurrentUser()
     
     if (user) {
       const role = user.role ? user.role.toLowerCase() : ''
@@ -106,6 +100,7 @@ function AppRoutes() {
       <Route path="/recruiter" element={<ProtectedRoute requiredRole="recruiter"><RecruiterDashboard /></ProtectedRoute>} />
       <Route path="/recruiter/jobs" element={<ProtectedRoute requiredRole="recruiter"><RecruiterJobs /></ProtectedRoute>} />
       <Route path="/recruiter/shortlist/:jobId" element={<ProtectedRoute requiredRole="recruiter"><RecruiterShortlist /></ProtectedRoute>} />
+      <Route path="/recruiter/interview-report/:interviewId" element={<ProtectedRoute requiredRole="recruiter"><RecruiterInterviewReport /></ProtectedRoute>} />
 
       {/* Admin Only */}
       <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Admin /></ProtectedRoute>} />

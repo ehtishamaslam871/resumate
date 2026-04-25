@@ -94,7 +94,7 @@ export default function Profile() {
       
       // Update local state
       const updated = { ...user, ...response.user }
-      api.setAuthToken(response.token || localStorage.getItem('authToken'), updated)
+      api.setAuthToken(response.token || api.getAuthToken(), updated)
       setUser(updated)
       setNewPassword('')
       setMessage('Profile saved successfully')

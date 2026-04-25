@@ -15,7 +15,7 @@ import {
 
 const emptyForm = {
   role: '',
-  techStack: '',
+  focusAreas: '',
   experienceLevel: 'mid-level',
 };
 
@@ -100,7 +100,8 @@ export default function Interview() {
       setError('');
       const response = await api.interview.createMockInterview({
         role: createForm.role.trim(),
-        techStack: createForm.techStack,
+        focusAreas: createForm.focusAreas,
+        techStack: createForm.focusAreas,
         experienceLevel: createForm.experienceLevel,
         questionCount: 10,
       });
@@ -291,7 +292,7 @@ export default function Interview() {
             <div className="mb-6 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold text-gray-100">Create Interview</h2>
-                <p className="mt-1 text-sm text-gray-400">Set your target role and stack to generate relevant questions.</p>
+                <p className="mt-1 text-sm text-gray-400">Set your target role and focus areas to generate relevant questions.</p>
               </div>
               <button
                 onClick={() => !creatingMock && setShowCreateModal(false)}
@@ -309,18 +310,18 @@ export default function Interview() {
                   value={createForm.role}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value }))}
                   className="input-modern"
-                  placeholder="Example: Frontend Developer"
+                  placeholder="Example: Nurse, Sales Executive, Electrician, Teacher"
                   required
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-300">Tech Stack (comma separated)</label>
+                <label className="mb-2 block text-sm font-semibold text-gray-300">Key Skills / Tools / Domain Topics (comma separated)</label>
                 <input
-                  value={createForm.techStack}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, techStack: e.target.value }))}
+                  value={createForm.focusAreas}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, focusAreas: e.target.value }))}
                   className="input-modern"
-                  placeholder="React, Node.js, MongoDB"
+                  placeholder="Customer service, POS billing, Inventory handling"
                 />
               </div>
 

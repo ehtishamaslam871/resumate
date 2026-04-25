@@ -5,9 +5,36 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
 
-// Get auth token from localStorage
-const getAuthToken = () => {
-  return localStorage.getItem('authToken')
+const AUTH_TOKEN_KEY = 'authToken'
+const USER_KEY = 'user'
+
+// One-time migration: move legacy shared auth from localStorage to tab-scoped sessionStorage.
+const hydrateLegacyAuthToSession = () => {
+  try {
+    const hasSessionToken = !!sessionStorage.getItem(AUTH_TOKEN_KEY)
+    const hasSessionUser = !!sessionStorage.getItem(USER_KEY)
+    const legacyToken = localStorage.getItem(AUTH_TOKEN_KEY)
+    const legacyUser = localStorage.getItem(USER_KEY)
+
+    if (!hasSessionToken && legacyToken) {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, legacyToken)
+    }
+    if (!hasSessionUser && legacyUser) {
+      sessionStorage.setItem(USER_KEY, legacyUser)
+    }
+
+    // Clear shared auth keys so tabs remain isolated from now on.
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+  } catch {
+    // Ignore storage access errors in restricted environments.
+  }
+}
+
+// Get auth token from tab-scoped sessionStorage
+export const getAuthToken = () => {
+  hydrateLegacyAuthToSession()
+  return sessionStorage.getItem(AUTH_TOKEN_KEY)
 }
 
 // Helper function to make API requests
@@ -148,8 +175,7 @@ export const authAPI = {
    * Logout user
    */
   logout: () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('user')
+    clearAuth()
     return Promise.resolve()
   },
 }
@@ -403,6 +429,41 @@ export const applicationAPI = {
   },
 
   /**
+   * Fetch application resume binary (authorized recruiter/applicant).
+   * Returns blob + metadata so caller can open/download in original format.
+   */
+  getApplicationResumeFile: async (applicationId) => {
+    const token = getAuthToken()
+    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}/resume-file`, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+
+    if (!response.ok) {
+      let message = `API Error: ${response.status}`
+      try {
+        const data = await response.json()
+        message = data.message || message
+      } catch (_) {
+        // Keep default message when response is not JSON.
+      }
+      throw new Error(message)
+    }
+
+    const blob = await response.blob()
+    const contentType = response.headers.get('content-type') || blob.type || 'application/octet-stream'
+    const contentDisposition = response.headers.get('content-disposition') || ''
+
+    let fileName = 'resume'
+    const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+    if (filenameMatch && filenameMatch[1]) {
+      fileName = filenameMatch[1]
+    }
+
+    return { blob, contentType, fileName }
+  },
+
+  /**
    * AI Shortlist candidates for a job
    * @param {string} jobId - Job ID
    * @param {Object} options - { topN: 5 }
@@ -419,10 +480,10 @@ export const applicationAPI = {
    * @param {string} applicationId - Application ID
    * @param {string} status - New status (accepted, rejected, etc)
    */
-  updateApplicationStatus: (applicationId, status) => {
+  updateApplicationStatus: (applicationId, status, meta = {}) => {
     return apiCall(`/applications/${applicationId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...meta }),
     })
   },
 
@@ -596,6 +657,16 @@ export const interviewAPI = {
       method: 'GET',
     })
   },
+
+  /**
+   * Resolve interview details for a specific application (recruiter)
+   * @param {string} applicationId - Application ID
+   */
+  getInterviewByApplication: (applicationId) => {
+    return apiCall(`/interview/by-application/${applicationId}`, {
+      method: 'GET',
+    })
+  },
 }
 
 // ==================== NOTIFICATION ENDPOINTS ====================
@@ -754,14 +825,23 @@ export const chatAPI = {
 // ==================== UTILITY FUNCTIONS ====================
 export const setAuthToken = (token, user) => {
   if (token) {
-    localStorage.setItem('authToken', token)
-    localStorage.setItem('user', JSON.stringify(user))
+    sessionStorage.setItem(AUTH_TOKEN_KEY, token)
+    if (user) {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+    }
+    // Keep shared auth cleared to avoid cross-tab role overwrite.
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+    window.dispatchEvent(new Event('authChange'))
   }
 }
 
 export const clearAuth = () => {
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('user')
+  sessionStorage.removeItem(AUTH_TOKEN_KEY)
+  sessionStorage.removeItem(USER_KEY)
+  localStorage.removeItem(AUTH_TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+  window.dispatchEvent(new Event('authChange'))
 }
 
 export const isAuthenticated = () => {
@@ -769,7 +849,8 @@ export const isAuthenticated = () => {
 }
 
 export const getCurrentUser = () => {
-  const user = localStorage.getItem('user')
+  hydrateLegacyAuthToSession()
+  const user = sessionStorage.getItem(USER_KEY)
   return user ? JSON.parse(user) : null
 }
 
@@ -796,4 +877,5 @@ export default {
   clearAuth,
   isAuthenticated,
   getCurrentUser,
+  getAuthToken,
 }

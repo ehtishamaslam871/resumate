@@ -14,27 +14,20 @@ export default function InterviewBot() {
 
   // Load current user
   useEffect(() => {
-    try {
-      const u = JSON.parse(
-        localStorage.getItem('resumate_user') ||
-        localStorage.getItem('user') ||
-        'null'
-      )
-      if (!u) {
-        navigate('/auth')
-        return
-      }
-      setCurrentUser(u)
-
-      // Welcome message
-      setMessages([{
-        id: Date.now(),
-        sender: 'ai',
-        text: `Hello ${u?.name || 'there'}! I'm your AI Career Assistant. I can help you with:\n\n• Resume tips and improvements\n• Interview preparation\n• Career advice and guidance\n• Job search strategies\n• Skill development recommendations\n\nHow can I help you today?`
-      }])
-    } catch {
+    const u = api.getCurrentUser()
+    if (!u) {
       navigate('/auth')
+      return
     }
+
+    setCurrentUser(u)
+
+    // Welcome message
+    setMessages([{
+      id: Date.now(),
+      sender: 'ai',
+      text: `Hello ${u?.name || 'there'}! I'm your AI Career Assistant. I can help you with:\n\n• Resume tips and improvements\n• Interview preparation\n• Career advice and guidance\n• Job search strategies\n• Skill development recommendations\n\nHow can I help you today?`
+    }])
   }, [navigate])
 
   // Auto-scroll

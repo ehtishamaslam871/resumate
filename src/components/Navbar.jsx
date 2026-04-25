@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, User, LogOut, Settings, Bell, ChevronRight } from "lucide-react";
 import { isAuthenticated, getUserRole, getNavItems, getDefaultRedirect } from '../config/permissions';
-import { notificationAPI, clearAuth } from '../services/api';
+import { notificationAPI, clearAuth, getCurrentUser } from '../services/api';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -16,9 +16,7 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
 
-  const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  });
+  const [user, setUser] = useState(() => getCurrentUser());
 
   // Scroll shadow effect
   useEffect(() => {
@@ -27,12 +25,15 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Sync auth across tabs + custom events
+  // Sync auth state in the current tab when auth changes.
   useEffect(() => {
-    const sync = () => { try { setUser(JSON.parse(localStorage.getItem("user"))); } catch { setUser(null); } };
-    window.addEventListener("storage", sync);
+    const sync = () => { setUser(getCurrentUser()); };
     window.addEventListener("authChange", sync);
-    return () => { window.removeEventListener("storage", sync); window.removeEventListener("authChange", sync); };
+    window.addEventListener("focus", sync);
+    return () => {
+      window.removeEventListener("authChange", sync);
+      window.removeEventListener("focus", sync);
+    };
   }, []);
 
   // Close dropdowns on outside click
@@ -87,10 +88,12 @@ export default function Navbar() {
   };
 
   const handleUpload = (closeMenu = false) => {
-    try {
-      const u = JSON.parse(localStorage.getItem("user") || "null");
-      if (!u) { if (closeMenu) setOpen(false); navigate("/auth", { state: { from: "/upload" } }); return; }
-    } catch { if (closeMenu) setOpen(false); navigate("/auth", { state: { from: "/upload" } }); return; }
+    const u = getCurrentUser()
+    if (!u) {
+      if (closeMenu) setOpen(false)
+      navigate("/auth", { state: { from: "/upload" } })
+      return
+    }
     if (closeMenu) setOpen(false);
     navigate("/upload");
   };

@@ -27,6 +27,9 @@ router.post('/mock/create', interviewController.createMockInterview);
 // Start a pending interview session
 router.post('/:interviewId/start-session', interviewController.startInterviewSession);
 
+// Resolve interview by application for recruiter workflow
+router.get('/by-application/:applicationId', interviewScheduleController.getInterviewByApplication);
+
 // Get interview for candidate
 router.get('/:interviewId', interviewScheduleController.getCandidateInterview);
 

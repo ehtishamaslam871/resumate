@@ -16,7 +16,7 @@ function ClerkAuthInner() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const mode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
-  const [role, setRole] = useState(localStorage.getItem('pendingAuthRole') || 'job_seeker')
+  const [role, setRole] = useState(sessionStorage.getItem('pendingAuthRole') || 'job_seeker')
 
   const appearance = useMemo(
     () => ({
@@ -50,7 +50,7 @@ function ClerkAuthInner() {
   }
 
   const saveRole = (nextRole) => {
-    localStorage.setItem('pendingAuthRole', nextRole)
+    sessionStorage.setItem('pendingAuthRole', nextRole)
     setRole(nextRole)
   }
 

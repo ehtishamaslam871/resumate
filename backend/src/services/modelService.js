@@ -154,16 +154,16 @@ const generateInterviewQuestions = async (jobDescription, resumeText, options = 
     ? Math.min(Math.max(requestedCount, 3), 10)
     : 10;
 
-  const technicalTarget = Math.min(5, Math.max(Math.floor(count / 2), 1));
-  const generalTarget = Math.max(count - technicalTarget, 1);
+  const roleSpecificTarget = Math.min(5, Math.max(Math.floor(count / 2), 1));
+  const generalTarget = Math.max(count - roleSpecificTarget, 1);
 
   const difficulty = options.difficulty || 'mixed';
   const experienceLevel = options.experienceLevel || 'mid-level';
-  const rolePrompt = `${jobDescription}. Experience level: ${experienceLevel}. Generate exactly ${count} role-specific and technology-specific PRACTICE interview questions. Include exactly ${generalTarget} general questions and ${technicalTarget} technical questions related to the selected role and tech stack. Avoid generic or unrelated questions.`;
+  const rolePrompt = `${jobDescription}. Experience level: ${experienceLevel}. Generate exactly ${count} PRACTICE interview questions for this role. Include exactly ${generalTarget} general behavioral/situational questions and ${roleSpecificTarget} role-specific/domain-specific questions. Keep it industry-agnostic (healthcare, finance, education, operations, sales, manufacturing, hospitality, tech, etc.) and avoid software-only assumptions unless explicitly required by the role description.`;
 
   if (shouldUseOpenAI()) {
     try {
-      const prompt = `Generate ${count} interview practice questions in JSON for this role context:\n${rolePrompt}\n\nTech stack focus: ${skills.join(', ') || 'general'}\nDifficulty: ${difficulty}\n\nRules:\n1) Exactly ${generalTarget} questions must have type "general" (behavioral or situational).\n2) Exactly ${technicalTarget} questions must have type "technical" and explicitly reference the role and/or provided technologies.\n3) No duplicate questions.\n\nReturn JSON exactly in this shape:\n{\n  "questions": [\n    {\n      "id": 1,\n      "question": "...",\n      "type": "general|technical",\n      "difficulty": "easy|medium|hard",\n      "expectedKeywords": ["..."],\n      "sampleAnswer": "concise ideal answer outline"\n    }\n  ]\n}`;
+      const prompt = `Generate ${count} interview practice questions in JSON for this role context:\n${rolePrompt}\n\nFocus areas: ${skills.join(', ') || 'role responsibilities, tools, and domain knowledge'}\nDifficulty: ${difficulty}\n\nRules:\n1) Exactly ${generalTarget} questions must have type "general" (behavioral or situational).\n2) Exactly ${roleSpecificTarget} questions must have type "role_specific" and explicitly reference the role context and/or provided focus areas.\n3) Questions must be valid for the target industry and avoid software-engineering bias unless role context explicitly demands it.\n4) No duplicate questions.\n\nReturn JSON exactly in this shape:\n{\n  "questions": [\n    {\n      "id": 1,\n      "question": "...",\n      "type": "general|role_specific",\n      "difficulty": "easy|medium|hard",\n      "expectedKeywords": ["..."],\n      "sampleAnswer": "concise ideal answer outline"\n    }\n  ]\n}`;
 
       const parsed = await callOpenAIJsonTask({
         model: OPENAI_MODEL_INTERVIEW_GENERATION,

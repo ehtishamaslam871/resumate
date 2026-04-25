@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const path = require('path');
 const { authMiddleware } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const resumeController = require('../controllers/resumeController');
 
-const upload = multer({ dest: 'uploads/' });
+const uploadDir = path.resolve(__dirname, '../../uploads');
+const upload = multer({ dest: uploadDir });
 
 // Job Seeker only — resume operations
 router.post('/upload', authMiddleware, roleMiddleware('jobseeker'), upload.single('resume'), resumeController.uploadResume);

@@ -58,7 +58,8 @@ exports.uploadResume = async (req, res) => {
       return res.status(400).json({ message: 'This file is not a resume, please upload another one.' });
     }
 
-    const fileUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${file.filename}`;
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${baseUrl}/uploads/${file.filename}`;
     const filePath = path.join(__dirname, '../../uploads', file.filename);
 
     const user = await User.findById(req.user.id);
@@ -93,6 +94,7 @@ exports.uploadResume = async (req, res) => {
       if (resumeText.length < MIN_LENGTH || !hasKeyword) {
         // Optionally, delete the uploaded file if not valid
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await Resume.findByIdAndDelete(resume._id);
         return res.status(400).json({ message: 'This file does not appear to be a resume. Please upload a valid resume document.' });
       }
       

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import { adminAPI } from "../services/api";
+import { adminAPI, getCurrentUser } from "../services/api";
 import {
   Users,
   Briefcase,
@@ -57,10 +57,7 @@ export default function AdminPanel() {
     const fetchData = async () => {
       try {
         // Check auth
-        let adminUser = JSON.parse(localStorage.getItem("user") || "null");
-        if (!adminUser) {
-          adminUser = JSON.parse(localStorage.getItem("resumate_user") || "null");
-        }
+        const adminUser = getCurrentUser();
         const userRole = adminUser?.role ? adminUser.role.toLowerCase() : '';
         if (!adminUser || userRole !== "admin") {
           navigate("/auth");

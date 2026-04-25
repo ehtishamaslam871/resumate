@@ -5,9 +5,9 @@
  * Uses the same apiCall helper pattern as api.js
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+import { getAuthToken } from './api'
 
-const getAuthToken = () => localStorage.getItem('authToken')
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
 
 const modelCall = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}/model${endpoint}`

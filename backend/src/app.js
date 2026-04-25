@@ -4,6 +4,7 @@ const passport = require('passport');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 require('./config/passport'); // Google strategy (optional)
 
@@ -46,8 +47,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
-// serve uploads
-app.use('/uploads', express.static('uploads'));
+// Serve uploaded resumes from both backend/uploads and workspace-root/uploads.
+// This avoids broken links when the process cwd differs between dev scripts.
+const uploadDirs = [
+  path.resolve(__dirname, '../uploads'),
+  path.resolve(__dirname, '../../uploads'),
+];
+
+for (const uploadDir of uploadDirs) {
+  app.use('/uploads', express.static(uploadDir));
+}
+
+app.use('/uploads', (req, res) => {
+  res.status(404).json({ message: 'Resume file not found' });
+});
 
 // ==================== ROUTES ====================
 

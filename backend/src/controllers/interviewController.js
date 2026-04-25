@@ -7,7 +7,7 @@ const Notification = require('../models/Notification');
 const modelService = require('../services/modelService');
 
 const DEFAULT_TOTAL_QUESTIONS = 10;
-const DEFAULT_TECHNICAL_QUESTIONS = 5;
+const DEFAULT_ROLE_SPECIFIC_QUESTIONS = 5;
 
 const normalizeTechStack = (value) => {
   if (!value) return [];
@@ -82,9 +82,9 @@ const formatQuestions = (rawQuestions = []) => {
 
 const buildFallbackQuestionPools = ({ role, techStack = [], experienceLevel = 'mid-level' }) => {
   const stack = normalizeTechStack(techStack).slice(0, 6);
-  const focusA = stack[0] || 'problem solving';
-  const focusB = stack[1] || 'system design';
-  const focusC = stack[2] || 'testing';
+  const focusA = stack[0] || 'core responsibilities';
+  const focusB = stack[1] || 'quality and compliance';
+  const focusC = stack[2] || 'stakeholder communication';
   const expLabel = String(experienceLevel || 'mid-level');
 
   const generalBank = [
@@ -139,54 +139,54 @@ const buildFallbackQuestionPools = ({ role, techStack = [], experienceLevel = 'm
     },
   ];
 
-  const technicalBank = [
+  const roleSpecificBank = [
     {
-      question: `Walk me through a challenging ${role} project where you used ${focusA}. What trade-offs did you make and why?`,
-      category: 'technical',
+      question: `Walk me through a challenging ${role} assignment where ${focusA} was critical. What trade-offs did you make and why?`,
+      category: 'role_specific',
       difficulty: 'medium',
       expectedKeywords: [focusA, 'trade-off', 'decision', 'result'],
-      sampleAnswer: `In one project, I used ${focusA} to deliver core functionality quickly, then balanced speed vs maintainability by extracting reusable modules and documenting constraints.`
+      sampleAnswer: `In one assignment, I relied on ${focusA} to deliver a successful outcome. I explained the constraints, my decision process, and the measurable result.`
     },
     {
-      question: `You are on-call for a ${role} feature built with ${focusB}. How would you debug a production issue step by step?`,
-      category: 'technical',
+      question: `A key KPI drops unexpectedly in your ${role} workflow. How would you investigate and resolve it step by step?`,
+      category: 'role_specific',
       difficulty: 'medium',
-      expectedKeywords: [focusB, 'logs', 'hypothesis', 'root cause'],
-      sampleAnswer: 'I would first assess impact, collect logs/metrics, form hypotheses, reproduce the issue in a controlled environment, validate the root cause, then deploy and monitor a fix.'
+      expectedKeywords: ['root cause', 'data', 'stakeholder communication', 'corrective action'],
+      sampleAnswer: 'I would quantify impact, gather evidence, identify likely causes, validate the root cause, implement corrective actions, and communicate progress and outcomes.'
     },
     {
-      question: `For a ${expLabel} ${role}, if you had to improve an existing feature built with ${focusA}, what metrics would you track and why?`,
-      category: 'technical',
+      question: `For a ${expLabel} ${role}, if you had to improve an existing process related to ${focusA}, what metrics would you track and why?`,
+      category: 'role_specific',
       difficulty: 'hard',
       expectedKeywords: [focusA, 'metrics', 'performance', 'quality'],
-      sampleAnswer: 'I would track user-facing latency, failure rate, conversion or engagement metrics, and maintainability indicators to ensure both product and engineering quality improve.'
+      sampleAnswer: 'I would define baseline metrics for quality, efficiency, and customer impact, then track improvements over time to ensure sustainable results.'
     },
     {
-      question: `How would you design and validate an API contract for a ${role} feature using ${focusB}?`,
-      category: 'technical',
+      question: `How would you document and standardize a repeatable procedure for ${focusB} in a ${role} team?`,
+      category: 'role_specific',
       difficulty: 'medium',
-      expectedKeywords: ['api', 'contract', 'validation', focusB],
-      sampleAnswer: 'I define clear request and response schemas, include versioning and error models, validate with integration tests, and monitor contract compatibility in production.'
+      expectedKeywords: ['process', 'standardization', 'quality checks', focusB],
+      sampleAnswer: 'I would map current steps, define a standard operating procedure, set acceptance criteria, train the team, and review outcomes regularly.'
     },
     {
-      question: `What is your approach to testing a ${role} workflow that depends on ${focusC}?`,
-      category: 'technical',
+      question: `What is your approach to quality assurance in a ${role} workflow that depends on ${focusC}?`,
+      category: 'role_specific',
       difficulty: 'medium',
-      expectedKeywords: [focusC, 'unit tests', 'integration tests', 'edge cases'],
-      sampleAnswer: 'I combine unit tests for core logic, integration tests for dependencies, and edge-case coverage for failure paths, then automate in CI.'
+      expectedKeywords: [focusC, 'quality checks', 'risk mitigation', 'edge cases'],
+      sampleAnswer: 'I use checkpoints, clear quality criteria, and edge-case planning to reduce errors and improve consistency across the workflow.'
     },
     {
-      question: `How would you optimize performance bottlenecks in a ${role} system built with ${focusA} and ${focusB}?`,
-      category: 'technical',
+      question: `How would you improve turnaround time and consistency in a ${role} process involving ${focusA} and ${focusB}?`,
+      category: 'role_specific',
       difficulty: 'hard',
-      expectedKeywords: ['profiling', 'latency', 'throughput', 'optimization'],
-      sampleAnswer: 'I profile first, target the highest-impact bottlenecks, apply incremental optimizations, and validate gains with before and after metrics.'
+      expectedKeywords: ['bottleneck analysis', 'workflow optimization', 'measurement', 'continuous improvement'],
+      sampleAnswer: 'I identify bottlenecks, prioritize high-impact improvements, pilot changes in phases, and validate success with before/after performance data.'
     },
   ];
 
   return {
     generalQuestions: formatQuestions(generalBank),
-    technicalQuestions: formatQuestions(technicalBank).map((q) => ({ ...q, category: 'technical' })),
+    roleSpecificQuestions: formatQuestions(roleSpecificBank).map((q) => ({ ...q, category: 'role_specific' })),
   };
 };
 
@@ -197,17 +197,28 @@ const isTechnicalQuestion = (question = {}, techStack = []) => {
   const questionText = normalizeQuestionText(question.question || question.questionText || question.text || '');
   const stack = normalizeTechStack(techStack).map((item) => item.toLowerCase());
 
-  const technicalHints = ['technical', 'coding', 'system', 'architecture', 'database', 'api', 'algorithm', 'debug', 'performance', 'security'];
+  const generalHints = ['general', 'behavioral', 'situational', 'culture'];
+  const roleSpecificHints = [
+    'technical', 'role-specific', 'role specific', 'domain', 'operations',
+    'process', 'procedure', 'quality', 'compliance', 'safety', 'inventory',
+    'customer', 'patient', 'equipment', 'sales', 'production', 'workflow'
+  ];
 
-  if (technicalHints.some((hint) => category.includes(hint))) {
+  if (generalHints.some((hint) => category.includes(hint))) {
+    return false;
+  }
+
+  if (category) {
     return true;
   }
+
+  if (!questionText) return false;
 
   if (stack.some((item) => item.length > 1 && questionText.includes(item))) {
     return true;
   }
 
-  return technicalHints.some((hint) => questionText.includes(hint));
+  return roleSpecificHints.some((hint) => questionText.includes(hint));
 };
 
 const mergeUniqueQuestions = (target = [], candidates = [], limit = Infinity) => {
@@ -235,17 +246,19 @@ const composeInterviewQuestions = ({
   techStack = [],
   experienceLevel = 'mid-level',
   totalCount = DEFAULT_TOTAL_QUESTIONS,
-  technicalCount = DEFAULT_TECHNICAL_QUESTIONS,
+  roleSpecificCount = DEFAULT_ROLE_SPECIFIC_QUESTIONS,
+  technicalCount,
 }) => {
   const safeTotalCount = Math.max(4, Number(totalCount) || DEFAULT_TOTAL_QUESTIONS);
-  const safeTechnicalCount = Math.min(
-    Math.max(Number(technicalCount) || DEFAULT_TECHNICAL_QUESTIONS, 1),
+  const requestedRoleSpecificCount = Number(roleSpecificCount ?? technicalCount);
+  const safeRoleSpecificCount = Math.min(
+    Math.max(Number.isFinite(requestedRoleSpecificCount) ? requestedRoleSpecificCount : DEFAULT_ROLE_SPECIFIC_QUESTIONS, 1),
     safeTotalCount - 1
   );
-  const safeGeneralCount = safeTotalCount - safeTechnicalCount;
+  const safeGeneralCount = safeTotalCount - safeRoleSpecificCount;
 
   const formatted = formatQuestions(rawQuestions);
-  const technicalFromAI = formatted.filter((q) => isTechnicalQuestion(q, techStack));
+  const roleSpecificFromAI = formatted.filter((q) => isTechnicalQuestion(q, techStack));
   const generalFromAI = formatted.filter((q) => !isTechnicalQuestion(q, techStack));
 
   const fallbackPools = buildFallbackQuestionPools({ role, techStack, experienceLevel });
@@ -253,14 +266,14 @@ const composeInterviewQuestions = ({
   const selectedGeneral = mergeUniqueQuestions([], generalFromAI, safeGeneralCount);
   mergeUniqueQuestions(selectedGeneral, fallbackPools.generalQuestions, safeGeneralCount);
 
-  const selectedTechnical = mergeUniqueQuestions([], technicalFromAI, safeTechnicalCount);
-  mergeUniqueQuestions(selectedTechnical, fallbackPools.technicalQuestions, safeTechnicalCount);
+  const selectedRoleSpecific = mergeUniqueQuestions([], roleSpecificFromAI, safeRoleSpecificCount);
+  mergeUniqueQuestions(selectedRoleSpecific, fallbackPools.roleSpecificQuestions, safeRoleSpecificCount);
 
   const combined = [];
   mergeUniqueQuestions(combined, selectedGeneral, safeGeneralCount);
-  mergeUniqueQuestions(combined, selectedTechnical, safeTotalCount);
+  mergeUniqueQuestions(combined, selectedRoleSpecific, safeTotalCount);
   mergeUniqueQuestions(combined, fallbackPools.generalQuestions, safeTotalCount);
-  mergeUniqueQuestions(combined, fallbackPools.technicalQuestions, safeTotalCount);
+  mergeUniqueQuestions(combined, fallbackPools.roleSpecificQuestions, safeTotalCount);
 
   return combined
     .slice(0, safeTotalCount)
@@ -298,7 +311,7 @@ exports.startInterview = async (req, res) => {
     console.log('🤖 Generating interview questions with local Llama model...');
     const jobExperienceLevel = job.experienceLevel || job.level || job.seniority || 'mid-level';
     const targetQuestionCount = DEFAULT_TOTAL_QUESTIONS;
-    const targetTechnicalCount = DEFAULT_TECHNICAL_QUESTIONS;
+    const targetRoleSpecificCount = DEFAULT_ROLE_SPECIFIC_QUESTIONS;
     const questionResult = await modelService.generateInterviewQuestions(
       job.description || job.title,
       resume.parsedText || 'Resume text not available',
@@ -317,7 +330,7 @@ exports.startInterview = async (req, res) => {
       techStack: job.requiredSkills || [],
       experienceLevel: jobExperienceLevel,
       totalCount: targetQuestionCount,
-      technicalCount: targetTechnicalCount,
+      roleSpecificCount: targetRoleSpecificCount,
     });
     let questionSource = 'ai';
 
@@ -355,7 +368,7 @@ exports.startInterview = async (req, res) => {
       message: `${user.name} has started the interview for ${job.title}`,
       relatedInterview: interview._id,
       relatedUser: req.user.id,
-      actionUrl: `/recruiter/interviews/${interview._id}`,
+      actionUrl: `/recruiter/interview-report/${interview._id}`,
       actionLabel: 'View Interview'
     });
 
@@ -374,20 +387,20 @@ exports.startInterview = async (req, res) => {
 // ==================== CREATE MOCK INTERVIEW ====================
 exports.createMockInterview = async (req, res) => {
   try {
-    const { role, techStack, experienceLevel } = req.body;
+    const { role, techStack, focusAreas, experienceLevel } = req.body;
 
     if (!role || !String(role).trim()) {
       return res.status(400).json({ message: 'Role is required' });
     }
 
-    const stack = normalizeTechStack(techStack);
+    const stack = normalizeTechStack(focusAreas || techStack);
     const normalizedExperience = experienceLevel || 'mid-level';
     const targetQuestionCount = DEFAULT_TOTAL_QUESTIONS;
-    const targetTechnicalCount = DEFAULT_TECHNICAL_QUESTIONS;
+    const targetRoleSpecificCount = DEFAULT_ROLE_SPECIFIC_QUESTIONS;
     const promptRole = [
       `${String(role).trim()} interview practice`,
       `Experience: ${normalizedExperience}`,
-      stack.length ? `Tech stack: ${stack.join(', ')}` : 'Tech stack: general',
+      stack.length ? `Focus areas: ${stack.join(', ')}` : 'Focus areas: role responsibilities and domain skills',
     ].join('. ');
     const resumeContext = stack.length
       ? `Skills: ${stack.join(', ')}`
@@ -406,7 +419,7 @@ exports.createMockInterview = async (req, res) => {
       techStack: stack,
       experienceLevel: normalizedExperience,
       totalCount: targetQuestionCount,
-      technicalCount: targetTechnicalCount,
+      roleSpecificCount: targetRoleSpecificCount,
     });
     let questionSource = 'ai';
 

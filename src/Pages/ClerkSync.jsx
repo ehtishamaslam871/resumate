@@ -34,10 +34,10 @@ function ClerkSyncInner() {
           throw new Error('Clerk token missing. Please sign in again.')
         }
 
-        const pendingRole = normalizeRole(localStorage.getItem('pendingAuthRole') || 'job_seeker')
+        const pendingRole = normalizeRole(sessionStorage.getItem('pendingAuthRole') || 'job_seeker')
         const response = await authAPI.clerkSync(clerkToken, pendingRole)
         setAuthToken(response.token, response.user)
-        localStorage.removeItem('pendingAuthRole')
+        sessionStorage.removeItem('pendingAuthRole')
 
         const role = normalizeRole(response.user?.role)
         if (role === 'admin') navigate('/admin', { replace: true })

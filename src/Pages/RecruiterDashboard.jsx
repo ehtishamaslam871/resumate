@@ -22,6 +22,7 @@ export default function RecruiterDashboard() {
   const [showInterviewCallFor, setShowInterviewCallFor] = useState(null);
   const [interviewCallData, setInterviewCallData] = useState({});
   const [sendingInterviewCall, setSendingInterviewCall] = useState(null);
+  const [viewingResumeId, setViewingResumeId] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -62,11 +63,7 @@ export default function RecruiterDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Check both new API key ('user') and old demo key ('resumate_user')
-        let user = JSON.parse(localStorage.getItem("user") || "null");
-        if (!user) {
-          user = JSON.parse(localStorage.getItem("resumate_user") || "null");
-        }
+        const user = api.getCurrentUser();
         
         const userRole = user?.role ? user.role.toLowerCase() : '';
         if (!user || userRole !== "recruiter") {
@@ -400,6 +397,31 @@ export default function RecruiterDashboard() {
       setError(err.message || 'Failed to send interview call.');
     } finally {
       setSendingInterviewCall(null);
+    }
+  };
+
+  const handleViewResume = async (app) => {
+    try {
+      setViewingResumeId(app._id);
+      const { blob, contentType, fileName } = await api.application.getApplicationResumeFile(app._id);
+      const typedBlob = blob.type ? blob : new Blob([blob], { type: contentType });
+      const objectUrl = URL.createObjectURL(typedBlob);
+
+      const opened = window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = fileName || 'resume';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 15000);
+    } catch (err) {
+      setError(err.message || 'Unable to open resume file');
+    } finally {
+      setViewingResumeId(null);
     }
   };
 
@@ -1004,6 +1026,12 @@ export default function RecruiterDashboard() {
                                 </span>
                               )}
                               <span>Applied: {new Date(app.appliedDate || app.createdAt).toLocaleDateString()}</span>
+                              {app.resumeScore != null && (
+                                <span className="text-neon-blue font-semibold">Resume score: {app.resumeScore}%</span>
+                              )}
+                              <span className="text-purple-300">
+                                Practice interviews: {app.practiceInterviewStats?.completedCount ?? 0}
+                              </span>
                               {app.matchedSkills?.length > 0 && (
                                 <span className="text-green-400">{app.matchedSkills.length} skills matched</span>
                               )}
@@ -1048,6 +1076,16 @@ export default function RecruiterDashboard() {
                                   <p className="text-[10px] text-gray-500 uppercase font-bold">Location</p>
                                 </div>
                               </div>
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="text-center p-2 rounded-lg bg-dark-900/50 border border-neon-blue/20">
+                                  <p className="text-lg font-extrabold text-neon-blue">{app.resumeScore != null ? `${app.resumeScore}%` : '—'}</p>
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Resume Score</p>
+                                </div>
+                                <div className="text-center p-2 rounded-lg bg-dark-900/50 border border-purple-500/20">
+                                  <p className="text-lg font-extrabold text-purple-300">{app.practiceInterviewStats?.completedCount ?? 0}</p>
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Practice Interviews</p>
+                                </div>
+                              </div>
                               <div className="flex flex-wrap gap-3">
                                 {app.matchedSkills?.length > 0 && (
                                   <div>
@@ -1073,6 +1111,32 @@ export default function RecruiterDashboard() {
                               {app.aiReasoning && (
                                 <p className="text-xs text-gray-400 mt-3 italic">{app.aiReasoning}</p>
                               )}
+
+                              <div className="mt-4 pt-3 border-t border-dark-700/50">
+                                <h5 className="text-xs font-bold text-purple-300 uppercase mb-2">Practice Interview Final Reports</h5>
+                                {(app.practiceInterviewReports?.length || 0) === 0 ? (
+                                  <p className="text-xs text-gray-500">No completed practice interview reports shared yet.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {app.practiceInterviewReports.slice(0, 3).map((report, idx) => (
+                                      <div key={report.interviewId || idx} className="p-2 rounded-lg bg-dark-900/50 border border-dark-700/50">
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                          <p className="text-xs font-semibold text-gray-200 truncate">{report.title || 'Practice Interview'}</p>
+                                          <span className="text-[10px] text-purple-300 font-bold">
+                                            {report.overallScore != null ? `${report.overallScore}%` : 'Score N/A'}
+                                          </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 line-clamp-2">
+                                          {report.summary || report.detailedFeedback || 'Final report summary not available.'}
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 mt-1">
+                                          {report.completedAt ? new Date(report.completedAt).toLocaleString() : 'Completion date unavailable'}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 
@@ -1115,16 +1179,15 @@ export default function RecruiterDashboard() {
                                 </div>
                               )}
 
-                              {app.resumeUrl && (
-                                <a
-                                  href={app.resumeUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 px-4 py-2 bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 rounded-lg hover:bg-neon-cyan/20 transition text-sm font-semibold mt-2"
+                              {(app.resume || app.resumeUrl) && (
+                                <button
+                                  onClick={() => handleViewResume(app)}
+                                  disabled={viewingResumeId === app._id}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 rounded-lg hover:bg-neon-cyan/20 transition text-sm font-semibold mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                  <FileText className="w-4 h-4" />
+                                  {viewingResumeId === app._id ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                                   View Resume
-                                </a>
+                                </button>
                               )}
                             </div>
 

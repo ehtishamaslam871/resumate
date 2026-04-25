@@ -28,14 +28,8 @@ export default function JobDetails() {
   const matched = requiredSkills.filter((s) => userSkills.includes(s));
 
   const handleApply = async () => {
-    let user = null
-    try {
-      user = JSON.parse(localStorage.getItem("resumate_user") || localStorage.getItem("user") || "null");
-      if (!user) {
-        navigate("/auth", { replace: true });
-        return;
-      }
-    } catch (e) {
+    const user = api.getCurrentUser()
+    if (!user) {
       navigate("/auth", { replace: true });
       return;
     }
@@ -70,7 +64,7 @@ export default function JobDetails() {
     }
   };
 
-  // load any existing application for this job from localStorage
+  // Load any existing application for this job from API.
   useEffect(() => {
     const checkExistingApplication = async () => {
       try {

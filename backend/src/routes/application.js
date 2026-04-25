@@ -15,6 +15,9 @@ router.get('/recommendations/jobs', roleMiddleware('jobseeker'), applicationCont
 // Get all applications for the current user (job seeker)
 router.get('/', roleMiddleware('jobseeker'), applicationController.getUserApplications);
 
+// Get linked resume file for an application (authorized applicant or recruiter)
+router.get('/:applicationId/resume-file', applicationController.getApplicationResumeFile);
+
 // Create an application for a job (job seeker only)
 router.post('/', roleMiddleware('jobseeker'), applicationController.createApplication);
 

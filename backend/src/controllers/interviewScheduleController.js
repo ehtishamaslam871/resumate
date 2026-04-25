@@ -258,6 +258,23 @@ exports.submitAnswer = async (req, res) => {
         areasForImprovement: [],
         recommendation: 'To be reviewed'
       };
+
+      // Notify recruiter that interview is completed
+      const job = await Job.findById(interview.job).select('recruiter title');
+      if (job && job.recruiter) {
+        const candidate = await require('../models/User').findById(interview.candidate).select('name');
+        await Notification.create({
+          user: job.recruiter,
+          type: 'interview_completed',
+          title: 'Interview Completed',
+          message: `${candidate?.name || 'Candidate'} has completed the interview for ${job.title}. View the report to make a decision.`,
+          relatedInterview: interview._id,
+          relatedUser: interview.candidate,
+          actionUrl: `/recruiter/interview-report/${interview._id}`,
+          actionLabel: 'View Report'
+        });
+        console.log(`✅ Interview completion notification sent to recruiter for ${job.title}`);
+      }
     }
 
     await interview.save();
@@ -302,6 +319,40 @@ exports.getInterviewFeedback = async (req, res) => {
     });
   } catch (err) {
     console.error('Get feedback error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ==================== GET INTERVIEW BY APPLICATION (RECRUITER) ====================
+exports.getInterviewByApplication = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const recruiterID = req.user.id;
+
+    const application = await Application.findById(applicationId);
+    if (!application) return res.status(404).json({ message: 'Application not found' });
+
+    const job = await Job.findById(application.job);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (job.recruiter.toString() !== recruiterID.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const interview = await Interview.findOne({
+      candidate: application.applicant,
+      job: application.job,
+    }).sort({ createdAt: -1 });
+
+    if (!interview) {
+      return res.status(404).json({ message: 'Interview not found for this application' });
+    }
+
+    res.json({
+      success: true,
+      interview,
+    });
+  } catch (err) {
+    console.error('Get interview by application error:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -357,9 +408,14 @@ exports.sendInterviewToCandidate = async (req, res) => {
       await interview.save();
     }
 
+    const appBaseUrl = (process.env.APP_URL || process.env.FRONTEND_URL || process.env.BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const resolvedInterviewLink = (interviewLink && String(interviewLink).trim())
+      ? String(interviewLink).trim()
+      : `${appBaseUrl}/interview-session/${interview._id}`;
+
     // Update interview with scheduling info
     interview.startedAt = interviewDate;
-    interview.transcriptUrl = interviewLink;
+    interview.transcriptUrl = resolvedInterviewLink;
     interview.status = 'pending';
     await interview.save();
 
@@ -372,7 +428,7 @@ exports.sendInterviewToCandidate = async (req, res) => {
     // Send notification to candidate
     const notificationMessage = `You have been invited for an interview for the ${job.title} position. 
 The interview is scheduled for ${new Date(interviewDate).toLocaleString()}.
-Interview Link: ${interviewLink}`;
+Interview Link: ${resolvedInterviewLink}`;
 
     await Notification.create({
       user: application.applicant,
@@ -381,7 +437,7 @@ Interview Link: ${interviewLink}`;
       message: notificationMessage,
       relatedApplication: applicationId,
       relatedJob: application.job,
-      actionUrl: interviewLink,
+      actionUrl: resolvedInterviewLink,
       actionLabel: 'Start Interview'
     });
 
