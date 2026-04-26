@@ -1201,8 +1201,10 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.getenv("PORT", "8000"))
     logger.info(f"Starting ResuMate Model Server")
+    logger.info(f"Listening on port: {port}")
     logger.info(f"Ollama endpoint: {OLLAMA_URL}")
     logger.info(f"Primary model: {PRIMARY_MODEL} | Fallback: {FALLBACK_MODEL}")
     logger.info(f"Resume parsing mode: {RESUME_PARSER_MODE}")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=port)

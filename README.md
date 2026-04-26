@@ -284,6 +284,72 @@ REDIS_URL=redis://localhost:6379
 
 ---
 
+## Railway Deployment
+
+This repository is ready for Railway as a multi-service project.
+
+### Services to Create
+
+1. Frontend service
+  - Root directory: repository root (`/`)
+  - Uses `railway.toml` in the root
+
+2. Backend service
+  - Root directory: `backend`
+  - Uses `backend/railway.toml`
+
+3. Model server service (optional)
+  - Root directory: `model-server`
+  - Uses `model-server/railway.toml`
+
+### Recommended Deployment Order
+
+1. Deploy backend service first.
+2. Copy backend Railway URL (for example: `https://resumate-backend.up.railway.app`).
+3. Deploy frontend with `VITE_API_URL` set to `<backend-url>/api`.
+4. If using local LLM endpoints, deploy model-server and set backend `MODEL_SERVER_URL`.
+
+### Backend Environment Variables (Railway)
+
+Set these in the backend Railway service:
+
+- `NODE_ENV=production`
+- `MONGODB_URI=<your-mongodb-uri>`
+- `JWT_SECRET=<strong-random-secret>`
+- `CLIENT_URL=<your-frontend-railway-url>`
+- `FRONTEND_URL=<your-frontend-railway-url>`
+- `CORS_ORIGINS=<your-frontend-railway-url>,https://localhost:5173`
+- `BASE_URL=<your-backend-railway-url>`
+- `MODEL_SERVER_URL=<your-model-server-railway-url>` (optional)
+- `CLERK_SECRET_KEY=<your-clerk-secret>` (if Clerk is enabled)
+
+### Frontend Environment Variables (Railway)
+
+Set these in the frontend Railway service:
+
+- `VITE_API_URL=<your-backend-railway-url>/api`
+- `VITE_CLERK_PUBLISHABLE_KEY=<your-clerk-publishable-key>` (if Clerk is enabled)
+
+### Model Server Variables (Optional)
+
+Set these in the model-server Railway service (only if you deploy it):
+
+- `RESUME_PARSER_MODE=regex` (recommended default on Railway)
+- `OLLAMA_URL=<ollama-endpoint>` (only if you have a reachable Ollama host)
+- `PRIMARY_MODEL=<model-name>`
+- `FALLBACK_MODEL=<model-name>`
+
+### Verification Checklist
+
+After deploy, verify:
+
+1. Backend health: `GET <backend-url>/`
+2. Model health (if deployed): `GET <model-url>/health`
+3. Frontend loads and can authenticate.
+4. Resume upload and job APIs work from the deployed frontend.
+
+---
+
 ## 🧪 Testing
 
 ### Run Linter

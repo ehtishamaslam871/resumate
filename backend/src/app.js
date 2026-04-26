@@ -24,9 +24,32 @@ const resumeBuilderRoutes = require('./routes/resumeBuilder');
 
 const app = express();
 
+const parseAllowedOrigins = () => {
+  const configuredOrigins = [
+    process.env.CORS_ORIGINS,
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  return Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
+};
+
+const allowedOrigins = parseAllowedOrigins();
+const allowAllOrigins = allowedOrigins.includes('*');
+
 // CORS — must come before helmet & other middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    if (!origin || allowAllOrigins || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
 }));
 

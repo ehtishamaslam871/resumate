@@ -3,12 +3,31 @@ const socketIO = require('socket.io');
 // Map to store user socket connections
 const userSockets = new Map();
 
+const parseAllowedOrigins = () => {
+  const configuredOrigins = [
+    process.env.CORS_ORIGINS,
+    process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  return Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
+};
+
 // Initialize Socket.IO
 const initializeSocket = (server) => {
+  const origins = parseAllowedOrigins();
+  const socketOrigin = origins.includes('*') ? true : origins;
+
   const io = socketIO(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: socketOrigin,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 
