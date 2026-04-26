@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { SignIn, SignUp, useAuth } from '@clerk/clerk-react'
-import { ChevronRight, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { SignIn, SignUp, useAuth, useClerk } from '@clerk/clerk-react'
+import { ChevronRight, ShieldCheck, Sparkles, Zap, Loader2 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -13,10 +13,13 @@ const roleOptions = [
 
 function ClerkAuthInner() {
   const { isSignedIn } = useAuth()
+  const { signOut } = useClerk()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const mode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
+  const shouldSwitchAccount = searchParams.get('switch') === '1'
   const [role, setRole] = useState(sessionStorage.getItem('pendingAuthRole') || 'job_seeker')
+  const [switchingAccount, setSwitchingAccount] = useState(false)
 
   const appearance = useMemo(
     () => ({
@@ -45,7 +48,44 @@ function ClerkAuthInner() {
     []
   )
 
-  if (isSignedIn) {
+  useEffect(() => {
+    if (!shouldSwitchAccount || !isSignedIn) return
+
+    let mounted = true
+    const run = async () => {
+      setSwitchingAccount(true)
+      try {
+        await signOut()
+      } catch (err) {
+        console.warn('Clerk sign out for account switch failed:', err?.message || err)
+      } finally {
+        if (mounted) {
+          setSwitchingAccount(false)
+          setSearchParams({ mode })
+        }
+      }
+    }
+
+    run()
+
+    return () => {
+      mounted = false
+    }
+  }, [isSignedIn, mode, setSearchParams, shouldSwitchAccount, signOut])
+
+  if (switchingAccount) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center px-6">
+        <div className="card-glass p-8 rounded-2xl border border-dark-700/60 max-w-md w-full text-center">
+          <Loader2 className="w-8 h-8 text-neon-cyan animate-spin mx-auto mb-4" />
+          <h1 className="text-xl font-display font-bold text-gray-100 mb-2">Switching Account</h1>
+          <p className="text-gray-400 text-sm">Signing out previous Clerk session so you can choose a different account.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isSignedIn && !shouldSwitchAccount) {
     return <Navigate to="/clerk-sync" replace />
   }
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
+const rateLimit = require('express-rate-limit');
 const authController = require('../controllers/authController');
 const { authMiddleware } = require('../middlewares/auth');
 
@@ -12,12 +13,33 @@ const ensureStrategy = (strategyName, label) => (req, res, next) => {
   return next();
 };
 
+const createAuthRateLimiter = ({ windowMs, max, message }) =>
+  rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => res.status(429).json({ message }),
+  });
+
+const forgotPasswordLimiter = createAuthRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many reset-code requests. Please try again in 15 minutes.',
+});
+
+const resetPasswordLimiter = createAuthRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many password reset attempts. Please try again in 15 minutes.',
+});
+
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/clerk/sync', authController.clerkSync);
 router.post('/admin/claim', authMiddleware, authController.claimAdminInvite);
-router.post('/forgot-password', authController.requestPasswordReset);
-router.post('/reset-password', authController.resetPassword);
+router.post('/forgot-password', forgotPasswordLimiter, authController.requestPasswordReset);
+router.post('/reset-password', resetPasswordLimiter, authController.resetPassword);
 router.get('/oauth/failure', authController.oauthFailure);
 
 // Google OAuth

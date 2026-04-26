@@ -84,7 +84,8 @@ export default function Navbar() {
     clearAuth();
     setUser(null);
     setProfileOpen(false);
-    navigate("/");
+    const hasClerk = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+    navigate(hasClerk ? '/clerk-auth?mode=signin&switch=1' : '/', { replace: true });
   };
 
   const handleUpload = (closeMenu = false) => {

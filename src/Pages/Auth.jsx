@@ -51,7 +51,8 @@ export default function AuthModal() {
   const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
   const handleClerkSignIn = () => {
     sessionStorage.setItem('pendingAuthRole', role)
-    navigate('/clerk-auth')
+    const mode = isLogin ? 'signin' : 'signup'
+    navigate(`/clerk-auth?mode=${mode}&switch=1`)
   }
 
   useEffect(() => {

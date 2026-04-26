@@ -133,7 +133,8 @@ export default function Profile() {
   const handleLogout = () => {
     clearAuth()
     setUser(null)
-    navigate('/')
+    const hasClerk = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+    navigate(hasClerk ? '/clerk-auth?mode=signin&switch=1' : '/', { replace: true })
   }
 
   const respondToInterview = (invite, accept = true) => {
@@ -151,7 +152,8 @@ export default function Profile() {
     // Clear auth and redirect - full account deletion requires admin action
     clearAuth()
     setUser(null)
-    navigate('/')
+    const hasClerk = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+    navigate(hasClerk ? '/clerk-auth?mode=signin&switch=1' : '/', { replace: true })
   }
 
   if (!user) return null

@@ -4,6 +4,7 @@ import { X, Mail, KeyRound, Lock, ArrowRight, Loader2, CheckCircle2 } from 'luci
 import { authAPI } from '../services/api'
 
 const CODE_LENGTH = 6
+const RESEND_COOLDOWN_SECONDS = 30
 
 export default function ForgotPasswordModal({ initialEmail = '', onClose = () => {}, onSuccess = () => {} }) {
   const [email, setEmail] = useState(initialEmail)
@@ -17,6 +18,7 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
   const [sendingCode, setSendingCode] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [resetCompleted, setResetCompleted] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const codeInputRefs = useRef([])
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -26,6 +28,16 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
       document.body.style.overflow = previousOverflow
     }
   }, [])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined
+
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 1 ? prev - 1 : 0))
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [resendCooldown])
 
 
   const enteredResetCode = resetCodeDigits.join('')
@@ -46,6 +58,11 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
     setDevResetCode('')
     setResetCompleted(false)
 
+    if (resetCodeSent && resendCooldown > 0) {
+      setError(`Please wait ${resendCooldown}s before requesting another code.`)
+      return
+    }
+
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email')
       return
@@ -56,6 +73,7 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
       const response = await authAPI.forgotPassword(email.trim())
       setResetCodeSent(true)
       setResetCodeDigits(Array(CODE_LENGTH).fill(''))
+      setResendCooldown(RESEND_COOLDOWN_SECONDS)
       setSuccess(response.message || 'If an account exists for this email, a reset code has been sent.')
       if (response.devResetCode) {
         setDevResetCode(response.devResetCode)
@@ -290,10 +308,10 @@ export default function ForgotPasswordModal({ initialEmail = '', onClose = () =>
                 <button
                   type="button"
                   onClick={handleSendResetCode}
-                  disabled={sendingCode}
-                  className="btn-secondary w-full"
+                  disabled={sendingCode || resendCooldown > 0}
+                  className="btn-secondary w-full disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Resend Code
+                  {sendingCode ? 'Sending Code...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
                 </button>
 
                 {devResetCode && (

@@ -110,6 +110,22 @@ const isStrongPassword = (password = '') => {
   );
 };
 
+const MAX_RESET_CODE_ATTEMPTS = Number(process.env.RESET_CODE_MAX_ATTEMPTS || 5);
+const RESET_CODE_LOCK_MINUTES = Number(process.env.RESET_CODE_LOCK_MINUTES || 15);
+
+const getResetLockMessage = (lockUntil) => {
+  const msRemaining = lockUntil.getTime() - Date.now();
+  const totalSeconds = Math.max(1, Math.ceil(msRemaining / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes > 0) {
+    return `Too many invalid code attempts. Try again in ${minutes}m ${seconds}s or request a new code.`;
+  }
+
+  return `Too many invalid code attempts. Try again in ${seconds}s or request a new code.`;
+};
+
 // ==================== REGISTER ====================
 exports.register = async (req, res) => {
   try {
@@ -303,6 +319,8 @@ exports.requestPasswordReset = async (req, res) => {
 
     user.resetPasswordToken = codeHash;
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.resetPasswordFailedAttempts = 0;
+    user.resetPasswordLockUntil = undefined;
     await user.save();
 
     try {
@@ -350,21 +368,48 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired reset code' });
     }
 
+    if (user.resetPasswordLockUntil && user.resetPasswordLockUntil.getTime() > Date.now()) {
+      return res.status(429).json({ message: getResetLockMessage(user.resetPasswordLockUntil) });
+    }
+
+    if (user.resetPasswordLockUntil && user.resetPasswordLockUntil.getTime() <= Date.now()) {
+      user.resetPasswordLockUntil = undefined;
+      user.resetPasswordFailedAttempts = 0;
+    }
+
     if (user.resetPasswordExpires.getTime() < Date.now()) {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
+      user.resetPasswordFailedAttempts = 0;
+      user.resetPasswordLockUntil = undefined;
       await user.save();
       return res.status(400).json({ message: 'Reset code expired. Request a new one.' });
     }
 
     const submittedHash = crypto.createHash('sha256').update(code).digest('hex');
     if (submittedHash !== user.resetPasswordToken) {
+      const failedAttempts = (user.resetPasswordFailedAttempts || 0) + 1;
+      user.resetPasswordFailedAttempts = failedAttempts;
+
+      if (failedAttempts >= MAX_RESET_CODE_ATTEMPTS) {
+        user.resetPasswordFailedAttempts = 0;
+        user.resetPasswordLockUntil = new Date(Date.now() + RESET_CODE_LOCK_MINUTES * 60 * 1000);
+        await user.save();
+
+        return res.status(429).json({
+          message: `Too many invalid code attempts. Reset is temporarily locked for ${RESET_CODE_LOCK_MINUTES} minutes.`,
+        });
+      }
+
+      await user.save();
       return res.status(400).json({ message: 'Invalid or expired reset code' });
     }
 
     user.password = newPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.resetPasswordFailedAttempts = 0;
+    user.resetPasswordLockUntil = undefined;
     await user.save();
 
     res.json({ message: 'Password reset successful. Please sign in with your new password.' });

@@ -839,6 +839,7 @@ export const setAuthToken = (token, user) => {
 export const clearAuth = () => {
   sessionStorage.removeItem(AUTH_TOKEN_KEY)
   sessionStorage.removeItem(USER_KEY)
+  sessionStorage.removeItem('pendingAuthRole')
   localStorage.removeItem(AUTH_TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
   window.dispatchEvent(new Event('authChange'))
