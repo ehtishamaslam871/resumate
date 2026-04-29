@@ -19,8 +19,8 @@
     "mongodb": "^7.0.0",
     "mongoose": "^9.1.4",
     "pdfkit": "^0.17.2",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.4",
     "stream-buffers": "^3.0.3"
   },

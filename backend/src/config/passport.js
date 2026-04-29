@@ -15,7 +15,7 @@ const decodeJwtPayload = (jwtToken = '') => {
   }
 };
 
-const getBaseUrl = () => process.env.BASE_URL || 'http://localhost:5001';
+const getBaseUrl = () => process.env.BASE_URL || 'http://localhost:5000';
 
 // Google OAuth Strategy
 if (
