@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -263,10 +262,20 @@ exports.clerkSync = async (req, res) => {
 // ==================== LOGIN ====================
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const email = (req.body?.email || '').toLowerCase().trim();
+    const password = req.body?.password || '';
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+
+    // Some users are created through social auth and do not have a local password.
+    if (!user.password) {
+      return res.status(401).json({ message: 'This account does not have a password. Use social sign-in or reset your password.' });
+    }
 
     // Compare password
     const isValid = await user.comparePassword(password);
